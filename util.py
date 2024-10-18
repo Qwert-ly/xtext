@@ -167,7 +167,7 @@ def char_freq(text):
     return {c: count / sum(char_counts.values()) for c, count in char_counts.items()}
 
 
-def check(target, texts, lsh, all_chars, num_neighbors=5):
+def check(target, texts, all_chars, num_neighbors=5):
     def find_nearest_neighbors(char_freqs, vec1):
         neighbors = []
         vec2 = np.zeros(len(all_chars))
