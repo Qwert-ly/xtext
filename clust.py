@@ -25,3 +25,5 @@ kmeans = KMeans(n_clusters=best_n_clusters, random_state=2)
 kmeans.fit(X)
 
 result, cls_f = clust(best_n_clusters, texts, kmeans, X)
+
+check(input(), texts, all_chars, num_neighbors=15)  # 输入ctext - all - slice（即read_files()读的）内的文本名，实时查询最邻近的num_neighbors个文本
