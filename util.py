@@ -177,7 +177,7 @@ def check(target, texts, lsh, all_chars, num_neighbors=5):
             neighbors.append((n, cosine(vec1, vec2)))
         return sorted(neighbors, key=lambda x: x[1])
 
-    char_freqs = {n: char_freq(texts[n]) for n in tqdm(lsh.query(create_minhash(texts[target])), desc='查询中') if n != target}
+    char_freqs = {n: char_freq(texts[n]) for n in list(texts.keys()) if n != target}
     target_freq = char_freq(texts[target])
     vec1 = np.zeros(len(all_chars))
     for i, char in enumerate(all_chars):
