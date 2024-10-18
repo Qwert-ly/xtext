@@ -1,7 +1,7 @@
 from util import *
 
 texts_dir = 'ctext - all - slice'
-df = pd.read_excel('工作簿1.xlsx')
+df = pd.read_parquet('data')
 idx = create_idx(texts_dir, 'index-all.json', load=True)
 
 while True:
