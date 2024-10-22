@@ -25,7 +25,7 @@ def find_synonym(model, word, top_n=5):
         return None
 
 
-def visualize_words(model, words, perplexity=10, n_iter=1000):
+def visualize_words(model, words, perplexity=10, n_iter=1000, title='词向量可视化'):
     word_vec = [model.wv[w] for w in words if w in model.wv]
 
     if not word_vec:
@@ -41,14 +41,14 @@ def visualize_words(model, words, perplexity=10, n_iter=1000):
         if w in model.wv:
             plt.scatter(embd[i, 0], embd[i, 1])
             plt.annotate(w, (embd[i, 0], embd[i, 1]))
-    plt.title('词向量可视化')
-    plt.savefig('词向量可视化.png')
+    plt.title(title)
+    plt.savefig(f'{title}.png')
     plt.show()
 
 
-def cluster_words(model, num_clusters=10, top_n=5000):
+def cluster_words(model, n_clusters=10, top_n=5000):
     w = model.wv.index_to_key[:top_n]
-    kmeans = KMeans(n_clusters=num_clusters)
+    kmeans = KMeans(n_clusters=n_clusters)
     kmeans.fit([model.wv[wd] for wd in w])
 
     word_cls = {}
@@ -74,6 +74,7 @@ def sentence_sim(model, sentence1, sentence2):
     return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
 
 
+
 folder = 'all - slice'
 model = build_w2v(f'w2v_model_{folder}.bin', text=f'ctext - {folder}', load=True)
 
@@ -88,17 +89,18 @@ while True:
         print(f'{word}不在词汇表中') if not syn else None
 
 # 词向量可视化(t-SNE)
-visualize_words(model, ['州', '侯', '城', '郡', '縣', '晉', '楚', '午', '宋', '伐', '鄭', '敗', '攻', '衛', '葬',
-                        '秦', '燕', '齊', '蔡', '韓', '趙', '魏', '奔', '圍', '襄', '帥', '討', '項', '葉', '觶',
-                        '鵫', '韘', '瓞', '釳'])
+visualize_words(model, ['州', '侯', '城', '郡', '縣', '晉', '楚', '宋', '鄭', '衛', '鳥', '獸', '鹿', '尾', '犬', '蟲', '蟻', '蠕', '蚊', '蛛',
+                        '花', '頭', '香', '葉', '樓', '病', '痛', '熱', '腹', '脈', '鼓', '舞', '琴', '鍾', '鐘', '祭', '祝', '尸', '奠', '牲',
+                        '之', '不', '以', '曰', '也', '年', '官', '軍', '州', '兵', '雲', '飛', '兮', '舟', '晴', '甘', '肉', '味', '米', '枚',
+                        '旖', '旎', '膀', '胱', '箜', '篌', '邯', '鄲'])
 
 # 语素聚类
-for cl, w in cluster_words(model, num_clusters=50, top_n=10000).items():
+for cl, w in cluster_words(model, n_clusters=50, top_n=10000).items():
     print(f"聚类{cl}: {', '.join(w[:25])}")
 
 # 句子相似度
-s1 = '關關雎鳩，在河之洲。窈窕淑女，君子好逑。'
-s2 = '學而時習之，不亦說乎？有朋自遠方來，不亦樂乎？人不知而不慍，不亦君子乎？'
+s1 = de_p('關關雎鳩，在河之洲。窈窕淑女，君子好逑。')
+s2 = de_p('學而時習之，不亦說乎？有朋自遠方來，不亦樂乎？人不知而不慍，不亦君子乎？')
 print(f'句1\t{s1}')
 print(f'句2\t{s2}')
 print(f'相似度\t{sentence_sim(model, s1, s2): .6f}')
