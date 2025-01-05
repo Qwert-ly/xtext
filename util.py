@@ -504,10 +504,8 @@ def unzip(path, zipf, zip_=False, format='zip'):
 
 
 
-# if __name__ == '__main__':
-    # organize_files_by_chapter('D:\\Files\\语言相关\\xtext\\ctext - all - slice\\左传\\前三公')
-
-if not os.path.exists('ctext - all - slice'):
-    unzip('ctext - all - slice', 'ctext - all - slice.7z', format='7z')
-if not os.path.exists('ctext - 副本 - 副本'):
-    unzip('ctext - 副本 - 副本', 'ctext - 副本 - 副本.7z', format='7z')
+if __name__ == '__main__':
+    if not os.path.exists('ctext - all - slice'):
+        unzip('ctext - all - slice', 'ctext - all - slice.7z', format='7z')
+    if not os.path.exists('ctext - 副本 - 副本'):
+        unzip('ctext - 副本 - 副本', 'ctext - 副本 - 副本.7z', format='7z')
