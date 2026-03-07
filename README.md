@@ -1,12 +1,13 @@
 # 说明
 ## 语料库与数据获取
-语料库体积较大，已迁移至[HuggingFace (Nulll-Official/ctext)](https://huggingface.co/datasets/Nulll-Official/ctext)托管。
-- `download_data.py`：自动从HuggingFace仓库下载最新的`.parquet`格式语料库。
-  - `ctext - all - slice`：自主收集的文言文繁体语料库，主要爬取自[维基文库](http://zh.qikisource.org)、[漢川草廬](http://www.sidneyluo.net)等处。
-  - `ctext - 副本 - 副本`：`ctext - all - slice` 的先秦部分。
+语料库体积较大，已迁移至[HuggingFace](https://huggingface.co/datasets/Nulll-Official/ctext)托管
+- `download_data.py`：自动从HuggingFace仓库下载最新的`.parquet`格式语料库
+  - `ctext - all - slice`：自主收集的文言文繁体语料库，主要爬取自[维基文库](http://zh.qikisource.org)、[漢川草廬](http://www.sidneyluo.net)等处
+  - `ctext - 副本 - 副本`：`ctext - all - slice` 的先秦部分
   - `ctext - 白话`：自主收集的白话及现代汉语繁体语料库，主要爬取自[维基百科](http://zh.wikipedia.org)、[BWIKI](http://wiki.biligame.com)、[维基文库](http://zh.qikisource.org)、[知乎](http://www.zhihu.com)、[繁體中文書庫](http://www.bwsk.net)等处
 
 ## 上古汉语音节表维护与查询工具
+[上古汉语音节表](https://zhuanlan.zhihu.com/p/12987993957)是新最小上古汉语(NOCM)成果的记录与直接反映。
 - `_maintain.py`：上古汉语音节表的维护与查询工具，另外包含文本用字差异比较、切韵(藤原复原本)查询（数据来自[qieyun-restored](http://github.com/nk2028/qieyun-restored)）、形声考与语料查询等小功能
 - `xlsx2json.py`：解析字典表和小韵表，并导出为json
 - `ai_check.py`：用DeepSeek API自动化校对音节表内容，支持断点续传
