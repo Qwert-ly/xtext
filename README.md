@@ -8,12 +8,13 @@
 
 ## 上古汉语音节表维护与查询工具
 [上古汉语音节表](https://zhuanlan.zhihu.com/p/12987993957)是新最小上古汉语(NOCM)成果的记录与集中反映。
-- `_maintain.py`：上古汉语音节表的维护与查询工具，另外包含文本用字差异比较、切韵(藤原复原本)查询（数据来自[qieyun-restored](http://github.com/nk2028/qieyun-restored)）、形声考与语料查询等小功能
+- `_maintain.py`：上古汉语音节表的维护与查询工具，另外包含文本用字差异比较、切韵(藤田拓海复原本)查询（数据来自[qieyun-restored](http://github.com/nk2028/qieyun-restored)）、形声考与语料查询等小功能
 - `xlsx2json.py`：解析字典表和小韵表，并导出为json
 - `ai_check.py`：用DeepSeek API自动化校对字典表内容，支持断点续传
 - `json2xlsx.py`：将AI校对结果转换回xlsx
 - `形聲考_240425`：《廣韻》形聲考（Sliark再整理, 2024.4.25），在`_maintain.py`中用于展示中古音韵地位
 - `音節表2小韻表.cls`：将音节表转换成小韵表的VBA脚本
+- `index.html`：上古汉语音节表的查询界面
 
 ## NLP工具
 - `hmm_seg.py`：文言分词器。使用PMI和信息熵发现文言文词汇，生成训练语料，并基于隐马尔可夫模型（HMM）训练古文分词器

@@ -1,5 +1,5 @@
 import pandas as pd
-import re
+import re, json
 
 
 def parse_def(text):
@@ -94,4 +94,25 @@ for _, row in df_x.iterrows():
 df_d['小韻表注釋'] = df_d.apply(get_note, axis=1)
 df_d['釋義'] = df_d['釋義'].apply(parse_def)
 
-df_d.to_json('上古汉语音节表.json', orient='records', force_ascii=False, indent=4)
+records = df_d.to_dict(orient='records')
+
+# 剔除空值
+cleaned_records = []
+for r in records:
+    cleaned_r = {}
+    for k, v in r.items():
+        if v != "" and v is not None and v != []:
+            if k == '釋義' and isinstance(v, dict):
+                if not v.get("說明") and not v.get("義項"):
+                    continue  # 说明和义项都空，不保留"釋義"
+                if not v.get("說明"): # 说明为空但有义项，只保留义项
+                    del v["說明"]
+
+            cleaned_r[k] = v
+
+    cleaned_records.append(cleaned_r)
+
+with open('上古汉语音节表.json', 'w', encoding='utf-8') as f:
+    json.dump(cleaned_records, f, ensure_ascii=False, separators=(',', ':'))
+
+# df_d.to_json('上古汉语音节表.json', orient='records', force_ascii=False)
