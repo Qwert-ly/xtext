@@ -7,12 +7,13 @@
   - `ctext - 白话`：自主收集的白话及现代汉语繁体语料库，主要爬取自[维基百科](http://zh.wikipedia.org)、[BWIKI](http://wiki.biligame.com)、[维基文库](http://zh.qikisource.org)、[知乎](http://www.zhihu.com)、[繁體中文書庫](http://www.bwsk.net)等处
 
 ## 上古汉语音节表维护与查询工具
-[上古汉语音节表](https://zhuanlan.zhihu.com/p/12987993957)是新最小上古汉语(NOCM)成果的记录与直接反映。
+[上古汉语音节表](https://zhuanlan.zhihu.com/p/12987993957)是新最小上古汉语(NOCM)成果的记录与集中反映。
 - `_maintain.py`：上古汉语音节表的维护与查询工具，另外包含文本用字差异比较、切韵(藤原复原本)查询（数据来自[qieyun-restored](http://github.com/nk2028/qieyun-restored)）、形声考与语料查询等小功能
 - `xlsx2json.py`：解析字典表和小韵表，并导出为json
-- `ai_check.py`：用DeepSeek API自动化校对音节表内容，支持断点续传
+- `ai_check.py`：用DeepSeek API自动化校对字典表内容，支持断点续传
 - `json2xlsx.py`：将AI校对结果转换回xlsx
 - `形聲考_240425`：《廣韻》形聲考（Sliark再整理, 2024.4.25），在`_maintain.py`中用于展示中古音韵地位
+- `音節表2小韻表.cls`：将音节表转换成小韵表的VBA脚本
 
 ## NLP工具
 - `hmm_seg.py`：文言分词器。使用PMI和信息熵发现文言文词汇，生成训练语料，并基于隐马尔可夫模型（HMM）训练古文分词器

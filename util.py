@@ -967,7 +967,7 @@ class MaxMatchSegmenter:
 
 if __name__ == "__main__":
     print("正在加载语料...")
-    texts, _ = read_files('ctext - all - slice')
+    texts, _ = read_files(r'xtext\ctext - all - slice')
     model = CharNGram(n=2)
     model.train(texts)
 
