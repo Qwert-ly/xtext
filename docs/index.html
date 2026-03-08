@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上古漢語字典查詢</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;700&family=Noto+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #1c1a17;
+            --ink-soft: #4a4540;
+            --ink-faint: #8a837a;
+            --paper: #f7f3ee;
+            --paper-card: #fdfaf6;
+            --paper-inset: #f0ebe3;
+            --vermilion: #c0392b;
+            --vermilion-light: #f5e6e4;
+            --indigo: #2c3e6b;
+            --indigo-light: #e8ecf5;
+            --gold: #8b6914;
+            --gold-light: #f5eed8;
+            --border: #d6cfc5;
+            --border-light: #e8e2d8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
+            background-color: var(--paper);
+            color: var(--ink);
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 32px 24px;
+            line-height: 1.8;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%23f7f3ee'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%23e8e2d8' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%23e8e2d8' opacity='0.5'/%3E%3C/svg%3E");
+        }
+        .page-header { text-align: center; margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+        .page-header::after { content: ''; display: block; width: 60px; height: 2px; background: var(--vermilion); margin: 12px auto 0; }
+        .page-header h1 { font-size: 26px; font-weight: 500; letter-spacing: 0.15em; color: var(--indigo); }
+        .search-container { position: sticky; top: 0; background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 28px; }
+        .search-box { display: flex; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--paper-card); box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: border-color 0.2s, box-shadow 0.2s; }
+        .search-box:focus-within { border-color: var(--indigo); box-shadow: 0 2px 16px rgba(44,62,107,0.12); }
+        input[type="text"] { flex: 1; padding: 13px 16px; font-size: 15px; font-family: inherit; border: none; background: transparent; outline: none; color: var(--ink); }
+        input[type="text"]::placeholder { color: var(--ink-faint); }
+        button { padding: 13px 24px; font-size: 14px; font-family: inherit; letter-spacing: 0.1em; cursor: pointer; background: var(--indigo); color: #fff; border: none; transition: background 0.2s; }
+        button:hover { background: #1e2b4e; }
+        button:disabled { background: #aaa; cursor: not-allowed; }
+        .result-card { background: var(--paper-card); margin-bottom: 28px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 3px 20px rgba(0,0,0,0.05); overflow: hidden; animation: fadeUp 0.3s ease both; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .char-banner { background: var(--indigo); color: #fff; padding: 20px 28px; display: flex; align-items: center; gap: 24px; }
+        .char-glyph { font-size: 64px; font-weight: 700; line-height: 1; color: #fff; flex-shrink: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .char-phonetics { flex: 1; }
+        .phonetic-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .phonetic-label { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; width: 28px; flex-shrink: 0; }
+        .phonetic-value { font-family: "Noto Sans Mono", monospace; font-size: 18px; color: #f0c27f; letter-spacing: 0.05em; }
+        .pinyin-value { font-family: "Noto Sans Mono", monospace; font-size: 14px; color: rgba(255,255,255,0.75); letter-spacing: 0.05em; }
+        .char-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .tag { display: inline-block; padding: 2px 10px; border-radius: 2px; font-size: 11px; letter-spacing: 0.06em; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.25); }
+        .freq-strip { background: var(--indigo-light); border-bottom: 1px solid var(--border-light); padding: 10px 28px; display: flex; gap: 28px; flex-wrap: wrap; }
+        .freq-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+        .freq-label { color: var(--ink-faint); }
+        .freq-num { font-family: "Noto Sans Mono", monospace; font-size: 13px; color: var(--indigo); font-weight: 500; }
+        .freq-bar-wrap { width: 60px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .freq-bar { height: 100%; background: var(--indigo); border-radius: 3px; opacity: 0.45; }
+        .card-body { padding: 22px 28px; }
+        .section { margin-bottom: 20px; }
+        .section:last-child { margin-bottom: 0; }
+        .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .section-icon { width: 20px; height: 20px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; font-weight: 700; }
+        .section-title { font-size: 13px; font-weight: 500; letter-spacing: 0.1em; color: var(--ink-soft); }
+        .section-note { font-size: 12px; color: var(--ink-faint); margin-left: 4px; }
+        .section-divider { height: 1px; background: var(--border-light); margin: 20px 0; }
+        .meanings-list { list-style: none; counter-reset: sense; }
+        .meanings-list li { counter-increment: sense; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
+        .meanings-list li:last-child { margin-bottom: 0; }
+        .meanings-list li::before { content: counter(sense); min-width: 22px; height: 22px; background: var(--vermilion); color: #fff; border-radius: 50%; font-size: 11px; font-family: "Noto Sans Mono", monospace; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 3px; }
+        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 12px 16px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; }
+        .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); }
+        .text-block.etymology { border-left-color: var(--vermilion); background: var(--vermilion-light); }
+        .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1>新最小上古漢語（NOCM）查詢</h1>
+    </div>
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="正在加載字庫…" onkeypress="handleEnter(event)" disabled>
+            <button id="searchBtn" onclick="searchDict()" disabled>查詢</button>
+        </div>
+    </div>
+    <div id="results"></div>
+    <script>
+        let dictData = [];
+
+        fetch('上古汉语音节表.json') //确保存在
+            .then(r => r.json())
+            .then(data => {
+                dictData = data;
+                const input = document.getElementById('searchInput');
+                input.placeholder = `已加載 ${data.length} 個字條 — 輸入漢字、擬音或拼音查詢(如“褧/khw'engq/kʰwˤeŋʔ”)`;
+                input.disabled = false;
+                document.getElementById('searchBtn').disabled = false;
+            })
+            .catch(() => { document.getElementById('searchInput').placeholder = '加載字典失敗'; });
+
+        function handleEnter(e) { if (e.key === 'Enter') searchDict(); }
+
+        function freqItem(label, val, max) {
+            if (!val && val !== 0) return '';
+            const pct = Math.min(100, (parseFloat(val) / max) * 100);
+            return `<div class="freq-item"><span class="freq-label">${label}</span><span class="freq-num">${val}</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${pct}%"></div></div></div>`;
+        }
+
+        function searchDict() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            if (!query) return;
+            const results = dictData.filter(item =>
+                item.字 === query ||
+                (item.拼音 && item.拼音.includes(query)) ||
+                (item.音 && item.音.includes(query))
+            );
+            if (results.length === 0) {
+                resultsDiv.innerHTML = `<div class="no-result">未找到「${query}」的相關字條</div>`;
+                return;
+            }
+            results.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.style.animationDelay = (idx * 0.06) + 's';
+                let tags = '';
+                if (item.見詩經韻 === "√") tags += `<span class="tag">見詩經韻</span>`;
+                if (item.見其他韻 === "√") tags += `<span class="tag">見其他韻</span>`;
+                let meaningsHtml = '<p style="color:var(--ink-faint);font-style:italic;font-size:14px;">暫無釋義</p>';
+                if (item.釋義?.義項?.length > 0) {
+                    meaningsHtml = `<ol class="meanings-list">${item.釋義.義項.map(m => `<li><span>${m}</span></li>`).join('')}</ol>`;
+                }
+                const meaningNote = item.釋義?.說明 ? `<span class="section-note">（${item.釋義.說明}）</span>` : '';
+                const freqHtml = [
+                    freqItem('總出現', item.總出現次數, 2000),
+                    freqItem('先秦歸一', item['先秦字頻（歸一化）'], 50),
+                    freqItem('見西周', item.見西周, 50),
+                    freqItem('西周歸一', item['西周字頻（歸一化）'], 50),
+                ].filter(Boolean).join('');
+                card.innerHTML = `
+                    <div class="char-banner">
+                        <div class="char-glyph">${item.字 || '？'}</div>
+                        <div class="char-phonetics">
+                            <div class="phonetic-row"><span class="phonetic-label">擬音</span><span class="phonetic-value">${item.音 || '—'}</span></div>
+                            <div class="phonetic-row"><span class="phonetic-label">拼音</span><span class="pinyin-value">${item.拼音 || '—'}</span></div>
+                            ${tags ? `<div class="char-tags">${tags}</div>` : ''}
+                        </div>
+                    </div>
+                    ${freqHtml ? `<div class="freq-strip">${freqHtml}</div>` : ''}
+                    <div class="card-body">
+                        <div class="section">
+                            <div class="section-header">
+                                <div class="section-icon" style="background:var(--vermilion-light);color:var(--vermilion);">義</div>
+                                <span class="section-title">釋義</span>${meaningNote}
+                            </div>
+                            ${meaningsHtml}
+                        </div>
+                        ${item['字統·字源諸說（zi.tools）'] ? `
+                        <div class="section-divider"></div>
+                        <div class="section">
+                            <div class="section-header">
+                                <div class="section-icon" style="background:var(--vermilion-light);color:var(--vermilion);">源</div>
+                                <span class="section-title">字源諸說</span>
+                            </div>
+                            <div class="text-block etymology">${item['字統·字源諸說（zi.tools）']}</div>
+                        </div>` : ''}
+                        ${item.注釋 ? `
+                        <div class="section-divider"></div>
+                        <div class="section">
+                            <div class="section-header">
+                                <div class="section-icon" style="background:var(--gold-light);color:var(--gold);">注</div>
+                                <span class="section-title">注釋</span>
+                            </div>
+                            <div class="text-block annotation">${item.注釋}</div>
+                        </div>` : ''}
+                    </div>`;
+                resultsDiv.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
