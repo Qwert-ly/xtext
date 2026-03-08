@@ -18,10 +18,9 @@
 ## NLP工具
 - `hmm_seg.py`：文言分词器。使用PMI和信息熵发现文言文词汇，生成训练语料，并基于隐马尔可夫模型（HMM）训练古文分词器
 - `clust_lda.py`：对文本进行隐含狄利克雷分布（Latent Dirichlet Allocation）软聚类，提取主题代表字，并可视化各篇目的主题概率分布
-- `Word2vec.py`：用`gensim.models.Word2Vec()`提取简单nlp数据，附使用示例
+- `Word2vec.py`：用`gensim.models.Word2Vec()`提取并训练Word2Vec词向量模型
 - `clust.py`：基于字频向量进行KMeans聚类；由轮廓分数(Silhouette Score)确定最佳聚类数
 - `clust4_clear.py`：基于字频向量，创建[余弦相似度](http://zhuanlan.zhihu.com/p/43396514)矩阵并保存；进行层次聚类，结果将保存为html
-- `Word2vec.py`：使用`gensim`提取并训练Word2Vec词向量模型
 - `util.py`：工具性函数
 
 ## 爬虫工具
