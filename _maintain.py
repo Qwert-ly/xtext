@@ -1,20 +1,17 @@
 from util import *
 from openpyxl import load_workbook
-import pandas as pd
-import re
 
 SHEET = '上古汉语音节表.xlsx'
 
-def n_results(index, char, zhou=False, src=False):
-    results = index.get(char, [])
-
-    if src:
-        return results[0][0][:-4].split('.')[-1] if results and all(result[0] == results[0][0] for result in results) and not zhou else ''
-    else:
-        return len(results) if results else ''
-
-
 def char_count():
+    def result_count(index, char, zhou=False, src=False):
+        results = index.get(char, [])
+
+        if src:
+            return results[0][0][:-4].split('.')[-1] if results and all(result[0] == results[0][0] for result in results) and not zhou else ''
+        else:
+            return len(results) if results else ''
+    
     W = load_workbook(filename=SHEET)
     wb = W['字典表']
     max_r = wb.max_row
@@ -27,9 +24,9 @@ def char_count():
     出處 = []
     for i in range(2, max_r + 1):
         c = wb['A' + str(i)].value
-        西周.append(n_results(xizhou, c, zhou=True))
-        次數.append(n_results(idx, c))
-        出處.append(n_results(idx, c, src=True))
+        西周.append(result_count(xizhou, c, zhou=True))
+        次數.append(result_count(idx, c))
+        出處.append(result_count(idx, c, src=True))
     df = pd.DataFrame({
         '總出現次數': 次數,
         '見西周': 西周,
@@ -55,7 +52,6 @@ def char_count():
 def clean_brackets(text):
     if pd.isna(text) or text == '':
         return text
-
     return re.sub(r'\{[^}]*}', '', str(text))
 
 
@@ -101,13 +97,12 @@ def dict_(dir='ctext - 副本 - 副本'):
         file.write(all_new_chars)
 
 
-def split_syllable(ipa, pinyin):
+def split_syllable(ipa):
     """
     将IPA和拼音分割为声母、介音和韵母
 
     Args:
         ipa: IPA音标字符串
-        pinyin: 拼音字符串
 
     Returns:
         tuple: (声母, 介音类别, 韵母)
@@ -162,20 +157,18 @@ def parse():
 
     for _, row in df.iterrows():
         ipa = row['IPA']
-        pinyin = row['拼音']
 
-        initial, medial, final = split_syllable(ipa, pinyin)
+        initial, medial, final = split_syllable(ipa)
 
         results.append({
             'IPA': ipa,
-            '拼音': pinyin,
+            '拼音': row['拼音'],
             '声': initial,
             '介': medial,
             '韵': final
         })
     result_df = pd.DataFrame(results)
     print(result_df)
-
     result_df.to_excel('_xy_音节拆分.xlsx', index=False)
 
 

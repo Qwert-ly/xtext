@@ -10,6 +10,7 @@ from datasketch import MinHash, MinHashLSH
 from scipy.spatial.distance import cosine, squareform, cdist
 from scipy.cluster.hierarchy import dendrogram, linkage
 from collections import defaultdict, Counter
+from sklearn.feature_extraction.text import TfidfTransformer
 from tqdm import tqdm, trange
 from functools import lru_cache, wraps
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
@@ -516,32 +517,42 @@ def visualize_clusters(M, tsne_result, cluster_labels):
     return pd.DataFrame(summary)
 
 
-def count_vectorizer(texts, min_df=2):
+def count_vectorizer(texts, min_df=2, top_n_drop=20):
     """
     字频矩阵生成器/sklearn.CountVectorizer
 
     参数:
         texts: dict, {文本名: 文本内容}
         min_df: int, 最小文档频率。一个字如果出现的篇目数少于这个值，就会被过滤掉。
+        top_n_drop: int, 剔除所有文本中绝对字频最高的前N个字，减少常用词干扰。
     返回:
         X: scipy.sparse.csr_matrix, 稀疏文档-字频矩阵
         feature_chars: list, 提取出的词汇表（所有非生僻特征字）
     """
     doc_freq = Counter()
+    total_char_freq = Counter()
 
     # 每个字在多少篇文档中出现过
     for text in texts.values():
         doc_freq.update(set(text))  # 单篇文档去重，只看是否出现过
+        total_char_freq.update(text)  # 绝对总字频
+    # 获取 Top N 高频字集合
+    top_chars = set()
+    if top_n_drop > 0:
+        top_chars = set(char for char, count in total_char_freq.most_common(top_n_drop))
+        print(f"剔除全局Top {top_n_drop}高频字：{''.join(top_chars)}")
 
-    # 去除出现篇数小于min_df的罕见字，构建特征字列表
-    chars = [char for char, count in doc_freq.items() if count >= min_df]
+    # 去除罕见字、Top N 高频字
+    chars = []
+    for c, count in doc_freq.items():
+        if count >= min_df:
+            if c in top_chars: continue  # 过滤高频字
+            chars.append(c)
+
     char_to_index = {char: idx for idx, char in enumerate(chars)}
-
     print(f"原始字库大小: {len(doc_freq)}，过滤后特征字库大小: {len(chars)}")
 
-    rows = []
-    cols = []
-    data = []
+    rows, cols, data = [], [], []
     for doc_idx, text in enumerate(texts.values()):
         # 统计单篇文档内各个字的绝对出现次数
         char_counts = Counter(text)
@@ -552,6 +563,16 @@ def count_vectorizer(texts, min_df=2):
                 data.append(count)
 
     return csr_matrix((data, (rows, cols)), shape=(len(texts), len(chars))), chars
+
+
+def tfidf_vectorizer(texts, min_df=2, top_n_drop=20):
+    """
+    基于count_vectorizer的过滤结果，计算 TF-IDF 权重
+    """
+    X_counts, chars = count_vectorizer(texts, min_df=min_df, top_n_drop=top_n_drop)
+    transformer = TfidfTransformer()
+    X_tfidf = transformer.fit_transform(X_counts)
+    return X_tfidf, chars
 
 
 def analyze_topo_features(M, title="Persistence Diagram"):
