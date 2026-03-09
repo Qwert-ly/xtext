@@ -94,16 +94,80 @@
     <script>
         let dictData = [];
 
-        fetch('上古汉语音节表.json') //确保存在
-            .then(r => r.json())
-            .then(data => {
-                dictData = data;
-                const input = document.getElementById('searchInput');
-                input.placeholder = `已加載 ${data.length} 個字條 — 輸入漢字、擬音或拼音查詢(如“褧/khw'engq/kʰwˤeŋʔ”)`;
+        // fetch('上古汉语音节表.json') //确保存在
+        //     .then(r => r.json())
+        //     .then(data => {
+        //         dictData = data;
+        //         const input = document.getElementById('searchInput');
+        //         input.placeholder = `已加載 ${data.length} 個字條 — 輸入漢字、擬音或拼音查詢(如“褧/khw'engq/kʰwˤeŋʔ”)`;
+        //         input.disabled = false;
+        //         document.getElementById('searchBtn').disabled = false;
+        //     })
+        //     .catch(() => { document.getElementById('searchInput').placeholder = '加載字典失敗'; });
+        async function loadDictionary() {
+            const input = document.getElementById('searchInput');
+            const btn = document.getElementById('searchBtn');
+
+            try {
+                // 请求压缩后的文件
+                const response = await fetch('上古汉语音节表.json.gz');
+                if (!response.ok) throw new Error('網絡請求失敗');
+
+                // 获取文件总大小用于计算进度（注意：部分服务器可能不返回 Content-Length）
+                const contentLength = response.headers.get('content-length');
+                const total = contentLength ? parseInt(contentLength, 10) : 0;
+                let loaded = 0;
+
+                // 1. 创建一个拦截器流，用来统计下载进度
+                const progressStream = new TransformStream({
+                    transform(chunk, controller) {
+                        loaded += chunk.byteLength;
+                        if (total) {
+                            const pct = Math.round((loaded / total) * 100);
+                            input.placeholder = `正在下載字庫... ${pct}%`;
+                        } else {
+                            // 如果服务器没返回总大小，就显示已下载的 MB 数
+                            input.placeholder = `正在下載字庫... ${(loaded / 1024 / 1024).toFixed(2)} MB`;
+                        }
+                        controller.enqueue(chunk); // 把数据透传给下一步
+                    }
+                });
+
+                // 2. 将数据流串联：下载流 -> 进度统计流 -> 原生 Gzip 解压流 -> 文本解码流
+                const decompressedStream = response.body
+                    .pipeThrough(progressStream)
+                    .pipeThrough(new DecompressionStream('gzip'))
+                    .pipeThrough(new TextDecoderStream());
+
+                const reader = decompressedStream.getReader();
+                let jsonText = '';
+
+                // 3. 逐步读取解压后的文本
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    jsonText += value;
+                }
+
+                input.placeholder = "正在構建索引...";
+
+                // 4. 解析 JSON
+                dictData = JSON.parse(jsonText);
+
+                // 5. 解除锁定，允许用户操作
+                input.placeholder = `已加載 ${dictData.length} 個字條 — 輸入漢字、擬音或拼音查詢(如“褧/khw'engq/kʰwˤeŋʔ”)`;
                 input.disabled = false;
-                document.getElementById('searchBtn').disabled = false;
-            })
-            .catch(() => { document.getElementById('searchInput').placeholder = '加載字典失敗'; });
+                btn.disabled = false;
+                input.focus();
+
+            } catch (error) {
+                console.error('加載錯誤:', error);
+                input.placeholder = '加載字典失敗，請檢查網絡連接';
+            }
+        }
+
+        // 页面加载时自动执行
+        loadDictionary();
 
         function handleEnter(e) { if (e.key === 'Enter') searchDict(); }
 

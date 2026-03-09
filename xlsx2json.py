@@ -1,5 +1,5 @@
 import pandas as pd
-import re, json
+import re, json, gzip, shutil
 
 
 def parse_def(text):
@@ -114,5 +114,9 @@ for r in records:
 
 with open('上古汉语音节表.json', 'w', encoding='utf-8') as f:
     json.dump(cleaned_records, f, ensure_ascii=False, separators=(',', ':'))
+
+with open('上古汉语音节表.json', 'rb') as f_in:
+    with gzip.open('上古汉语音节表.json.gz', 'wb', compresslevel=9) as f_out:
+        shutil.copyfileobj(f_in, f_out)
 
 # df_d.to_json('上古汉语音节表.json', orient='records', force_ascii=False)
