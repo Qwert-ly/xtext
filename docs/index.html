@@ -104,21 +104,21 @@
         //         document.getElementById('searchBtn').disabled = false;
         //     })
         //     .catch(() => { document.getElementById('searchInput').placeholder = '加載字典失敗'; });
+        let maxTotal = 1;
+        let maxZhou = 1;
+
         async function loadDictionary() {
             const input = document.getElementById('searchInput');
             const btn = document.getElementById('searchBtn');
 
             try {
-                // 请求压缩后的文件
                 const response = await fetch('上古汉语音节表.json.gz');
                 if (!response.ok) throw new Error('網絡請求失敗');
 
-                // 获取文件总大小用于计算进度（注意：部分服务器可能不返回 Content-Length）
                 const contentLength = response.headers.get('content-length');
                 const total = contentLength ? parseInt(contentLength, 10) : 0;
                 let loaded = 0;
 
-                // 1. 创建一个拦截器流，用来统计下载进度
                 const progressStream = new TransformStream({
                     transform(chunk, controller) {
                         loaded += chunk.byteLength;
@@ -126,14 +126,12 @@
                             const pct = Math.round((loaded / total) * 100);
                             input.placeholder = `正在下載字庫... ${pct}%`;
                         } else {
-                            // 如果服务器没返回总大小，就显示已下载的 MB 数
                             input.placeholder = `正在下載字庫... ${(loaded / 1024 / 1024).toFixed(2)} MB`;
                         }
-                        controller.enqueue(chunk); // 把数据透传给下一步
+                        controller.enqueue(chunk);
                     }
                 });
 
-                // 2. 将数据流串联：下载流 -> 进度统计流 -> 原生 Gzip 解压流 -> 文本解码流
                 const decompressedStream = response.body
                     .pipeThrough(progressStream)
                     .pipeThrough(new DecompressionStream('gzip'))
@@ -141,8 +139,6 @@
 
                 const reader = decompressedStream.getReader();
                 let jsonText = '';
-
-                // 3. 逐步读取解压后的文本
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -150,12 +146,13 @@
                 }
 
                 input.placeholder = "正在構建索引...";
-
-                // 4. 解析 JSON
                 dictData = JSON.parse(jsonText);
 
-                // 5. 解除锁定，允许用户操作
-                input.placeholder = `已加載 ${dictData.length} 個字條 — 輸入漢字、擬音或拼音查詢(如“褧/khw'engq/kʰwˤeŋʔ”)`;
+                // dictData 中的 c = 總出現次數，x = 見西周
+                maxTotal = Math.max(...dictData.map(item => item.c || 0));
+                maxZhou = Math.max(...dictData.map(item => item.x || 0));
+
+                input.placeholder = `已加載${dictData.length}個字條 — 輸入漢字、擬音或拼音查詢(如“褧/khw'engq/kʰwˤeŋʔ”)`;
                 input.disabled = false;
                 btn.disabled = false;
                 input.focus();
@@ -166,7 +163,6 @@
             }
         }
 
-        // 页面加载时自动执行
         loadDictionary();
 
         function handleEnter(e) { if (e.key === 'Enter') searchDict(); }
@@ -182,39 +178,55 @@
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '';
             if (!query) return;
+
+            // 适配短键名: z=字, p=拼音, y=音
             const results = dictData.filter(item =>
-                item.字 === query ||
-                (item.拼音 && item.拼音.includes(query)) ||
-                (item.音 && item.音.includes(query))
+                item.z === query ||
+                (item.p && item.p.includes(query)) ||
+                (item.y && item.y.includes(query))
             );
+
             if (results.length === 0) {
                 resultsDiv.innerHTML = `<div class="no-result">未找到「${query}」的相關字條</div>`;
                 return;
             }
+
             results.forEach((item, idx) => {
                 const card = document.createElement('div');
                 card.className = 'result-card';
                 card.style.animationDelay = (idx * 0.06) + 's';
+
                 let tags = '';
-                if (item.見詩經韻 === "√") tags += `<span class="tag">見詩經韻</span>`;
-                if (item.見其他韻 === "√") tags += `<span class="tag">見其他韻</span>`;
+                if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
+                if (item.q === 1) tags += `<span class="tag">見其他韻</span>`;
+
+                // 处理释义 d = [说明, [义项1, 义项2]]
                 let meaningsHtml = '<p style="color:var(--ink-faint);font-style:italic;font-size:14px;">暫無釋義</p>';
-                if (item.釋義?.義項?.length > 0) {
-                    meaningsHtml = `<ol class="meanings-list">${item.釋義.義項.map(m => `<li><span>${m}</span></li>`).join('')}</ol>`;
+                let meaningNote = '';
+                if (item.d && item.d[1] && item.d[1].length > 0) {
+                    meaningNote = item.d[0] ? `<span class="section-note">（${item.d[0]}）</span>` : '';
+                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${m}</span></li>`).join('')}</ol>`;
                 }
-                const meaningNote = item.釋義?.說明 ? `<span class="section-note">（${item.釋義.說明}）</span>` : '';
+
+                const calcNorm = (val, max) => val ? (100 * Math.sqrt(val / max)).toFixed(2) : null;
+                const normTotal = calcNorm(item.c, maxTotal);
+                const normZhou = calcNorm(item.x, maxZhou);
+
+                // c = 總出現次數, x = 見西周。归一化公式的上限就是 100，所以 max 填 100
                 const freqHtml = [
-                    freqItem('總出現', item.總出現次數, 2000),
-                    freqItem('先秦歸一', item['先秦字頻（歸一化）'], 50),
-                    freqItem('見西周', item.見西周, 50),
-                    freqItem('西周歸一', item['西周字頻（歸一化）'], 50),
+                    freqItem('總出現', item.c, maxTotal),
+                    freqItem('先秦歸一', normTotal, 100),
+                    freqItem('見西周', item.x, maxZhou),
+                    freqItem('西周歸一', normZhou, 100),
                 ].filter(Boolean).join('');
+
+                // n = 注释, e = 字源
                 card.innerHTML = `
                     <div class="char-banner">
-                        <div class="char-glyph">${item.字 || '？'}</div>
+                        <div class="char-glyph">${item.z || '？'}</div>
                         <div class="char-phonetics">
-                            <div class="phonetic-row"><span class="phonetic-label">擬音</span><span class="phonetic-value">${item.音 || '—'}</span></div>
-                            <div class="phonetic-row"><span class="phonetic-label">拼音</span><span class="pinyin-value">${item.拼音 || '—'}</span></div>
+                            <div class="phonetic-row"><span class="phonetic-label">擬音</span><span class="phonetic-value">${item.y || '—'}</span></div>
+                            <div class="phonetic-row"><span class="phonetic-label">拼音</span><span class="pinyin-value">${item.p || '—'}</span></div>
                             ${tags ? `<div class="char-tags">${tags}</div>` : ''}
                         </div>
                     </div>
@@ -227,23 +239,23 @@
                             </div>
                             ${meaningsHtml}
                         </div>
-                        ${item['字統·字源諸說（zi.tools）'] ? `
+                        ${item.e ? `
                         <div class="section-divider"></div>
                         <div class="section">
                             <div class="section-header">
                                 <div class="section-icon" style="background:var(--vermilion-light);color:var(--vermilion);">源</div>
                                 <span class="section-title">字源諸說</span>
                             </div>
-                            <div class="text-block etymology">${item['字統·字源諸說（zi.tools）']}</div>
+                            <div class="text-block etymology">${item.e}</div>
                         </div>` : ''}
-                        ${item.注釋 ? `
+                        ${item.n ? `
                         <div class="section-divider"></div>
                         <div class="section">
                             <div class="section-header">
                                 <div class="section-icon" style="background:var(--gold-light);color:var(--gold);">注</div>
                                 <span class="section-title">注釋</span>
                             </div>
-                            <div class="text-block annotation">${item.注釋}</div>
+                            <div class="text-block annotation">${item.n}</div>
                         </div>` : ''}
                     </div>`;
                 resultsDiv.appendChild(card);

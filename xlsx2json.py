@@ -1,5 +1,5 @@
 import pandas as pd
-import re, json, gzip, shutil
+import re, json, gzip, shutil, msgpack
 
 
 def parse_def(text):
@@ -31,14 +31,16 @@ def parse_def(text):
                     e = val + 1
 
     if not split:
-        return {"說明": "", "義項": [text]}
+        return ["", [text]]
 
-    result = {"說明": "", "義項": []}
+    result_meta = ""
+    result = []
+
     s_ = split[0].start()
     if s_ > 0:
         meta = text[:s_].strip()
         if meta:
-            result["說明"] = meta
+            result_meta = meta
 
     for i in range(len(split)):
         start_i = split[i].end()
@@ -49,8 +51,9 @@ def parse_def(text):
 
         part = text[start_i:end_i].strip()
         if part:
-            result["義項"].append(part)
-    return result
+            result.append(part)
+
+    return [result_meta, result]
 
 
 def parse_xiaoyun_chars(text):
@@ -94,6 +97,10 @@ for _, row in df_x.iterrows():
 df_d['小韻表注釋'] = df_d.apply(get_note, axis=1)
 df_d['釋義'] = df_d['釋義'].apply(parse_def)
 
+for col in ['先秦字頻（歸一化）', '西周字頻（歸一化）', '小韻表注釋']:
+    if col in df_d.columns:
+        df_d = df_d.drop(columns=[col])
+
 records = df_d.to_dict(orient='records')
 
 # 剔除空值
@@ -102,21 +109,33 @@ for r in records:
     cleaned_r = {}
     for k, v in r.items():
         if v != "" and v is not None and v != []:
-            if k == '釋義' and isinstance(v, dict):
-                if not v.get("說明") and not v.get("義項"):
-                    continue  # 说明和义项都空，不保留"釋義"
-                if not v.get("說明"): # 说明为空但有义项，只保留义项
-                    del v["說明"]
-
+            if k == '釋義' and isinstance(v, list) and len(v) == 2:
+                if not v[0] and not v[1]:
+                    continue # 说明和义项都空，不保留
             cleaned_r[k] = v
-
     cleaned_records.append(cleaned_r)
 
 with open('上古汉语音节表.json', 'w', encoding='utf-8') as f:
     json.dump(cleaned_records, f, ensure_ascii=False, separators=(',', ':'))
 
-with open('上古汉语音节表.json', 'rb') as f_in:
-    with gzip.open('上古汉语音节表.json.gz', 'wb', compresslevel=9) as f_out:
-        shutil.copyfileobj(f_in, f_out)
+key_map = {
+    "字": "z", "音": "y", "拼音": "p", "見詩經韻": "s", "見其他韻": "q",
+    "總出現次數": "c", "少見詞出處": "r", "見西周": "x",
+    "釋義": "d", "注釋": "n", "字統·字源諸說（zi.tools）": "e"
+}
+
+short_records = []
+for r in cleaned_records:
+    sr = {}
+    for k, v in r.items():
+        short_key = key_map.get(k, k)
+        if v == "√":
+            v = 1
+        sr[short_key] = v
+    short_records.append(sr)
+
+
+with gzip.open('上古汉语音节表.json.gz', 'wb', compresslevel=9) as f_out:
+    f_out.write(json.dumps(short_records, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
 
 # df_d.to_json('上古汉语音节表.json', orient='records', force_ascii=False)
