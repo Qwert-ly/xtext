@@ -27,6 +27,12 @@
         .search-container { position: sticky; top: 0; background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 12px; }
         .search-box { display: flex; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--paper-card); box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: border-color 0.2s, box-shadow 0.2s; }
         .search-box:focus-within { border-color: var(--indigo); box-shadow: 0 2px 16px rgba(44,62,107,0.12); }
+        .search-options { display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+        .radio-label { cursor: pointer; display: inline-flex; }
+        .radio-label input { display: none; }
+        .radio-btn { padding: 6px 18px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--border); border-radius: 20px; color: var(--ink-soft); transition: all 0.2s ease; background: var(--paper-card); letter-spacing: 0.05em; }
+        .radio-label:hover .radio-btn { border-color: var(--indigo-light); color: var(--indigo); }
+        .radio-label input:checked + .radio-btn { background: var(--indigo); color: #fff; border-color: var(--indigo); box-shadow: 0 2px 8px rgba(44,62,107,0.2); }
         input[type="text"] { flex: 1; padding: 13px 16px; font-size: 15px; font-family: inherit; border: none; background: transparent; outline: none; color: var(--ink); }
         input[type="text"]::placeholder { color: var(--ink-faint); }
         button { padding: 13px 24px; font-size: 14px; font-family: inherit; letter-spacing: 0.1em; cursor: pointer; background: var(--indigo); color: #fff; border: none; transition: background 0.2s; }
@@ -75,12 +81,34 @@
 </head>
 <body>
     <div class="page-header">
-        <h1>新最小上古漢語（NOCM）查詢</h1>
+        <h1>
+            <a href="https://zhuanlan.zhihu.com/p/12987993957" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--vermilion)'" onmouseout="this.style.color='inherit'">
+                新最小上古漢語（NOCM）查詢
+            </a>
+        </h1>
     </div>
     <div class="search-container">
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="正在加載字庫…" onkeypress="handleEnter(event)" disabled>
             <button id="searchBtn" onclick="searchDict()" disabled>查詢</button>
+        </div>
+        <div class="search-options">
+            <label class="radio-label">
+                <input type="radio" name="searchMode" value="default" checked>
+                <span class="radio-btn">默認</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="searchMode" value="exact">
+                <span class="radio-btn">精確</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="searchMode" value="regex">
+                <span class="radio-btn">正則</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="searchMode" value="meaning">
+                <span class="radio-btn">釋義反查</span>
+            </label>
         </div>
     </div>
     <div id="extraStatus"></div>
@@ -133,7 +161,7 @@
                     input.placeholder = `加載基礎字庫... ${pct}`;
                 });
 
-                input.placeholder = `已加載 ${dictData.length} 字 — 支援漢字/音/釋義/正則(如 /wang/)，或雙引號"精確搜索"`;
+                input.placeholder = `已加載${dictData.length}字 — 請輸入關鍵字`;
                 input.disabled = false;
                 btn.disabled = false;
                 input.focus();
@@ -172,8 +200,9 @@
         }
 
         function searchByDomain(domain) {
-            // 反查諧聲域，自動填入雙引號保證精確匹配
-            document.getElementById('searchInput').value = '"' + domain + '"';
+            document.getElementById('searchInput').value = domain;
+            // 自動幫使用者切換到「精確」搜尋模式
+            document.querySelector('input[name="searchMode"][value="exact"]').checked = true;
             searchDict();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -181,30 +210,38 @@
         function searchDict() {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
+            const mode = document.querySelector('input[name="searchMode"]:checked').value;
+
             resultsDiv.innerHTML = '';
             if (!query) return;
 
-            // 解析搜索意圖
-            let isRegex = query.startsWith('/') && query.endsWith('/') && query.length > 2;
+            let isRegexMode = mode === 'regex' || (query.startsWith('/') && query.endsWith('/') && query.length > 2);
             let regex = null;
-            if (isRegex) {
-                try { regex = new RegExp(query.slice(1, -1)); } catch(e) { isRegex = false; }
+            if (isRegexMode) {
+                let regexStr = query;
+                if (query.startsWith('/') && query.endsWith('/')) regexStr = query.slice(1, -1);
+                try { regex = new RegExp(regexStr); } catch(e) { isRegexMode = false; }
             }
 
-            let isExact = query.startsWith('"') && query.endsWith('"') && query.length > 2;
-            let exactStr = isExact ? query.slice(1, -1) : query;
+            let isExactMode = mode === 'exact' || (query.startsWith('"') && query.endsWith('"') && query.length > 2);
+            let exactStr = (query.startsWith('"') && query.endsWith('"')) ? query.slice(1, -1) : query;
 
-            let isUpperDomain = /^[A-Z0-9]+$/.test(query); // 判斷是否為大寫諧聲域搜索
+            let isUpperDomain = /^[A-Z0-9]+$/.test(query);
 
             const results = dictData.filter(item => {
-                if (isRegex && regex) {
+                if (mode === 'meaning') {
+                    const inMeaning = item.d && item.d[1] && item.d[1].some(m => m.includes(query));
+                    const inEtym = item.e && item.e.includes(query);
+                    const inNote = item.n && item.n.includes(query);
+                    return inMeaning || inEtym || inNote;
+                }
+                if (isRegexMode && regex) {
                     return regex.test(item.z) || regex.test(item.y) || regex.test(item.p) || regex.test(item.a);
                 }
-                if (isExact) {
+                if (isExactMode) {
                     return item.z === exactStr || item.y === exactStr || item.p === exactStr || item.a === exactStr;
                 }
 
-                // 常規模糊匹配
                 const inChar = item.z === query;
                 const inPhonetic = item.y && item.y.includes(query);
                 const inPinyin = item.p && item.p.includes(query);
@@ -218,7 +255,18 @@
                 return;
             }
 
-            results.forEach((item, idx) => {
+            const MAX_RESULTS = 100;
+            let displayResults = results;
+
+            if (results.length > MAX_RESULTS) {
+                displayResults = results.slice(0, MAX_RESULTS);
+                const warningMsg = document.createElement('div');
+                warningMsg.style.cssText = "text-align: center; margin-bottom: 24px; padding: 12px; background: var(--gold-light); color: var(--gold); border: 1px solid rgba(139, 105, 20, 0.2); border-radius: 4px; font-size: 13.5px; letter-spacing: 0.05em;";
+                warningMsg.innerHTML = `找到<b>${results.length}</b>條結果。為避免卡頓，僅顯示前<b>${MAX_RESULTS}</b>條。`;
+                resultsDiv.appendChild(warningMsg);
+            }
+
+            displayResults.forEach((item, idx) => {
                 const card = document.createElement('div');
                 card.className = 'result-card';
                 card.style.animationDelay = (idx * 0.06) + 's';
@@ -269,7 +317,9 @@
                         <div class="section">
                             <div class="section-header">
                                 <div class="section-icon" style="background:var(--vermilion-light);color:var(--vermilion);">源</div>
-                                <span class="section-title">字源諸說</span>
+                                <span class="section-title">
+                                    <a href="https://zi.tools/zi/${item.z}" target="_blank" style="color:inherit; text-decoration:none; border-bottom: 1px dashed var(--ink-faint); transition: all 0.2s;" onmouseover="this.style.color='var(--vermilion)'; this.style.borderBottomColor='var(--vermilion)';" onmouseout="this.style.color='inherit'; this.style.borderBottomColor='var(--ink-faint)';">字源諸說 (zi.tools)</a>
+                                </span>
                             </div>
                             <div class="text-block etymology">${item.e}</div>
                         </div>` : ''}
@@ -285,6 +335,14 @@
                     </div>`;
                 resultsDiv.appendChild(card);
             });
+
+            // 如果有截斷，在底部再補一個小提示
+            if (results.length > MAX_RESULTS) {
+                const bottomMsg = document.createElement('div');
+                bottomMsg.style.cssText = "text-align: center; margin-top: 10px; color: var(--ink-faint); font-size: 13px;";
+                bottomMsg.innerText = `— 還有${results.length - MAX_RESULTS}條結果已省略 —`;
+                resultsDiv.appendChild(bottomMsg);
+            }
         }
     </script>
 </body>
