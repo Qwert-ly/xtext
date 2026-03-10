@@ -77,6 +77,7 @@
         .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); }
         .text-block.etymology { border-left-color: var(--vermilion); background: var(--vermilion-light); }
         .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     </style>
 </head>
 <body>
@@ -87,32 +88,39 @@
             </a>
         </h1>
     </div>
-    <div class="search-container">
+    <div class="search-container" role="search">
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="正在加載字庫…" onkeypress="handleEnter(event)" disabled>
-            <button id="searchBtn" onclick="searchDict()" disabled>查詢</button>
+            <label for="searchInput" class="sr-only">搜尋上古漢語字典</label>
+            <input type="text" id="searchInput" placeholder="正在加載字庫…"
+                   onkeypress="handleEnter(event)" disabled
+                   aria-label="搜尋上古漢語字典"
+                   aria-describedby="searchModeDesc"
+                   autocomplete="off" spellcheck="false" maxlength="200">
+            <button id="searchBtn" onclick="searchDict()" disabled aria-label="執行查詢">查詢</button>
         </div>
-        <div class="search-options">
+        <div class="search-options" role="group" aria-labelledby="searchModeDesc">
+            <span id="searchModeDesc" class="sr-only">選擇搜尋模式</span>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="default" checked>
+                <input type="radio" name="searchMode" value="default" checked aria-label="默認模式：自動分詞查詢">
                 <span class="radio-btn">默認</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="exact">
+                <input type="radio" name="searchMode" value="exact" aria-label="精確模式：完整符合搜尋">
                 <span class="radio-btn">精確</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="regex">
+                <input type="radio" name="searchMode" value="regex" aria-label="正則模式：使用正規表達式搜尋">
                 <span class="radio-btn">正則</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="meaning">
+                <input type="radio" name="searchMode" value="meaning" aria-label="釋義反查模式：從釋義文字反向查詢">
                 <span class="radio-btn">釋義反查</span>
             </label>
         </div>
     </div>
-    <div id="extraStatus"></div>
-    <div id="results"></div>
+    <div id="extraStatus" role="status" aria-live="polite"></div>
+    <div id="regexError" role="alert" aria-live="assertive" style="display:none; text-align:center; margin-bottom:16px; padding:10px 16px; background:var(--vermilion-light); color:var(--vermilion); border:1px solid rgba(192,57,43,0.2); border-radius:4px; font-size:13.5px; letter-spacing:0.05em;"></div>
+    <div id="results" aria-live="polite" aria-label="查詢結果"></div>
 
     <script>
         let dictData = [];
@@ -207,12 +215,30 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // 正則安全性：限制長度並偵測已知高風險 ReDoS 模式
+        const REGEX_MAX_LEN = 100;
+        const REDOS_PATTERN = /(\(.*\*.*\*|\(.*\+.*\+|\(\?=.*\*|\(\?!.*\*|(\.\*){3,}|\(\w+\+\)\+|\(\w+\*\)\+)/;
+
+        function safeRegex(str) {
+            if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（最多 ${REGEX_MAX_LEN} 字元，目前 ${str.length} 字元）` };
+            if (REDOS_PATTERN.test(str)) return { ok: false, msg: '正則表達式含有可能造成瀏覽器卡頓的危險模式，已拒絕執行' };
+            try {
+                const r = new RegExp(str);
+                return { ok: true, regex: r };
+            } catch(e) {
+                return { ok: false, msg: `正則語法錯誤：${e.message}` };
+            }
+        }
+
         function searchDict() {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
+            const regexErrorDiv = document.getElementById('regexError');
             const mode = document.querySelector('input[name="searchMode"]:checked').value;
 
             resultsDiv.innerHTML = '';
+            regexErrorDiv.style.display = 'none';
+            regexErrorDiv.textContent = '';
             if (!query) return;
 
             let isRegexMode = mode === 'regex' || (query.startsWith('/') && query.endsWith('/') && query.length > 2);
@@ -223,7 +249,14 @@
             if (isRegexMode) {
                 let regexStr = query;
                 if (query.startsWith('/') && query.endsWith('/')) regexStr = query.slice(1, -1);
-                try { regex = new RegExp(regexStr); } catch(e) { isRegexMode = false; }
+                const result = safeRegex(regexStr);
+                if (!result.ok) {
+                    regexErrorDiv.textContent = result.msg;
+                    regexErrorDiv.style.display = 'block';
+                    isRegexMode = false;
+                    return;
+                }
+                regex = result.regex;
             }
 
             if (isExactMode) {
@@ -256,17 +289,20 @@
                 if (tokens.length === 0) tokens = [query];
 
                 // 依序查詢每個 Token 並合併結果（沒查到的自動忽略）
+                // 用 Map 以字典索引為 key，確保同一字條不重複出現
+                const seen = new Map();
                 tokens.forEach(token => {
                     let isUpperDomain = /^[A-Z0-9]+$/.test(token);
-                    let tokenResults = dictData.filter(item => {
+                    dictData.forEach((item, idx) => {
+                        if (seen.has(idx)) return;
                         const inChar = item.z === token;
                         const inPhonetic = item.y && item.y.includes(token);
                         const inPinyin = item.p && item.p.includes(token);
                         const inDomain = (isUpperDomain && item.a && item.a.includes(token)) || item.a === token;
-                        return inChar || inPhonetic || inPinyin || inDomain;
+                        if (inChar || inPhonetic || inPinyin || inDomain) seen.set(idx, item);
                     });
-                    results = results.concat(tokenResults);
                 });
+                results = Array.from(seen.values());
             } else {
                 // 非默認模式（釋義反查、正則、精確），使用全局比對
                 results = dictData.filter(item => {
@@ -287,13 +323,15 @@
             }
 
             if (results.length === 0) {
-                resultsDiv.innerHTML = `<div class="no-result">未找到「${query}」的相關字條</div>`;
+                resultsDiv.setAttribute('aria-label', '查詢結果：無結果');
+                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${query}」的相關字條</div>`;
                 return;
             }
 
             // 數量限制與防卡死提示（長文模式放寬到 150 條）
             const MAX_RESULTS = 150;
             let displayResults = results;
+            resultsDiv.setAttribute('aria-label', `查詢結果：共 ${results.length} 條`);
 
             if (results.length > MAX_RESULTS) {
                 displayResults = results.slice(0, MAX_RESULTS);
@@ -310,7 +348,7 @@
                 card.style.animationDelay = (idx * 0.06) + 's';
 
                 let tags = '';
-                if (item.a) tags += `<span class="tag xiesheng-tag" onclick="searchByDomain('${item.a}')" title="點擊查找同諧聲域字">諧聲域: ${item.a}</span>`;
+                if (item.a) tags += `<span class="tag xiesheng-tag" role="button" tabindex="0" onclick="searchByDomain('${item.a}')" onkeypress="if(event.key==='Enter'||event.key===' ')searchByDomain('${item.a}')" title="點擊查找同諧聲域字" aria-label="諧聲域 ${item.a}，點擊查詢同域字">諧聲域: ${item.a}</span>`;
                 if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
                 if (item.q === 1) tags += `<span class="tag">見戰國韻</span>`;
 
