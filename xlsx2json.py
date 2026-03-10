@@ -1,5 +1,5 @@
 import pandas as pd
-import re, json, gzip, shutil, msgpack
+import re, json, gzip
 
 
 def parse_def(text):
@@ -119,23 +119,31 @@ with open('上古汉语音节表.json', 'w', encoding='utf-8') as f:
     json.dump(cleaned_records, f, ensure_ascii=False, separators=(',', ':'))
 
 key_map = {
-    "字": "z", "音": "y", "拼音": "p", "見詩經韻": "s", "見其他韻": "q",
-    "總出現次數": "c", "少見詞出處": "r", "見西周": "x",
+    "字": "z", "音": "y", "拼音": "p", "諧聲域": "a", "見詩經韻": "s", "見戰國韻": "q",
+    "總出現次數": "c", "見西周": "x",
     "釋義": "d", "注釋": "n", "字統·字源諸說（zi.tools）": "e"
 }
 
-short_records = []
+base_records = []
+extra_records = []
+
 for r in cleaned_records:
-    sr = {}
+    br = {}
+    er = {}
     for k, v in r.items():
         short_key = key_map.get(k, k)
         if v == "√":
             v = 1
-        sr[short_key] = v
-    short_records.append(sr)
+        if short_key in ['z', 'y', 'p', 'a']:
+            br[short_key] = v
+        else:
+            er[short_key] = v
 
+    base_records.append(br)
+    extra_records.append(er)
 
-with gzip.open('上古汉语音节表.json.gz', 'wb', compresslevel=9) as f_out:
-    f_out.write(json.dumps(short_records, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
+with gzip.open('base.json.gz', 'wb', compresslevel=9) as f_out:
+    f_out.write(json.dumps(base_records, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
 
-# df_d.to_json('上古汉语音节表.json', orient='records', force_ascii=False)
+with gzip.open('extra.json.gz', 'wb', compresslevel=9) as f_out:
+    f_out.write(json.dumps(extra_records, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
