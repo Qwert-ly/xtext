@@ -216,56 +216,94 @@
             if (!query) return;
 
             let isRegexMode = mode === 'regex' || (query.startsWith('/') && query.endsWith('/') && query.length > 2);
+            let isExactMode = mode === 'exact' || (query.startsWith('"') && query.endsWith('"') && query.length > 2);
             let regex = null;
+            let exactStr = "";
+
             if (isRegexMode) {
                 let regexStr = query;
                 if (query.startsWith('/') && query.endsWith('/')) regexStr = query.slice(1, -1);
                 try { regex = new RegExp(regexStr); } catch(e) { isRegexMode = false; }
             }
 
-            let isExactMode = mode === 'exact' || (query.startsWith('"') && query.endsWith('"') && query.length > 2);
-            let exactStr = (query.startsWith('"') && query.endsWith('"')) ? query.slice(1, -1) : query;
+            if (isExactMode) {
+                exactStr = (query.startsWith('"') && query.endsWith('"')) ? query.slice(1, -1) : query;
+            }
 
-            let isUpperDomain = /^[A-Z0-9]+$/.test(query);
+            let results = [];
 
-            const results = dictData.filter(item => {
-                if (mode === 'meaning') {
-                    const inMeaning = item.d && item.d[1] && item.d[1].some(m => m.includes(query));
-                    const inEtym = item.e && item.e.includes(query);
-                    const inNote = item.n && item.n.includes(query);
-                    return inMeaning || inEtym || inNote;
+            // 如果是「默認模式」且沒有使用正則/精確的快捷語法，啟動「長文注音/分詞」邏輯
+            if (mode === 'default' && !isRegexMode && !isExactMode) {
+                let tokens = [];
+                // 先用空格將字串切開
+                const parts = query.split(/\s+/);
+                for (let p of parts) {
+                    if (!p) continue;
+                    // 如果這一個區塊包含漢字，就逐字拆解（自動過濾掉標點符號）
+                    if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(p)) {
+                        for (let ch of p) {
+                            if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(ch)) {
+                                tokens.push(ch);
+                            }
+                        }
+                    } else {
+                        // 否則視為完整的拼音、擬音或諧聲域（如 wang, m.ru[g]s, A1）
+                        tokens.push(p);
+                    }
                 }
-                if (isRegexMode && regex) {
-                    return regex.test(item.z) || regex.test(item.y) || regex.test(item.p) || regex.test(item.a);
-                }
-                if (isExactMode) {
-                    return item.z === exactStr || item.y === exactStr || item.p === exactStr || item.a === exactStr;
-                }
 
-                const inChar = item.z === query;
-                const inPhonetic = item.y && item.y.includes(query);
-                const inPinyin = item.p && item.p.includes(query);
-                const inDomain = (isUpperDomain && item.a && item.a.includes(query)) || item.a === query;
+                // 防呆：如果拆解後是空的（例如只輸入了一堆逗號），退回原字串查詢
+                if (tokens.length === 0) tokens = [query];
 
-                return inChar || inPhonetic || inPinyin || inDomain;
-            });
+                // 依序查詢每個 Token 並合併結果（沒查到的自動忽略）
+                tokens.forEach(token => {
+                    let isUpperDomain = /^[A-Z0-9]+$/.test(token);
+                    let tokenResults = dictData.filter(item => {
+                        const inChar = item.z === token;
+                        const inPhonetic = item.y && item.y.includes(token);
+                        const inPinyin = item.p && item.p.includes(token);
+                        const inDomain = (isUpperDomain && item.a && item.a.includes(token)) || item.a === token;
+                        return inChar || inPhonetic || inPinyin || inDomain;
+                    });
+                    results = results.concat(tokenResults);
+                });
+            } else {
+                // 非默認模式（釋義反查、正則、精確），使用全局比對
+                results = dictData.filter(item => {
+                    if (mode === 'meaning') {
+                        const inMeaning = item.d && item.d[1] && item.d[1].some(m => m.includes(query));
+                        const inEtym = item.e && item.e.includes(query);
+                        const inNote = item.n && item.n.includes(query);
+                        return inMeaning || inEtym || inNote;
+                    }
+                    if (isRegexMode && regex) {
+                        return regex.test(item.z) || regex.test(item.y) || regex.test(item.p) || regex.test(item.a);
+                    }
+                    if (isExactMode) {
+                        return item.z === exactStr || item.y === exactStr || item.p === exactStr || item.a === exactStr;
+                    }
+                    return false;
+                });
+            }
 
             if (results.length === 0) {
                 resultsDiv.innerHTML = `<div class="no-result">未找到「${query}」的相關字條</div>`;
                 return;
             }
 
-            const MAX_RESULTS = 100;
+            // 數量限制與防卡死提示（長文模式放寬到 150 條）
+            const MAX_RESULTS = 150;
             let displayResults = results;
 
             if (results.length > MAX_RESULTS) {
                 displayResults = results.slice(0, MAX_RESULTS);
                 const warningMsg = document.createElement('div');
                 warningMsg.style.cssText = "text-align: center; margin-bottom: 24px; padding: 12px; background: var(--gold-light); color: var(--gold); border: 1px solid rgba(139, 105, 20, 0.2); border-radius: 4px; font-size: 13.5px; letter-spacing: 0.05em;";
-                warningMsg.innerHTML = `找到<b>${results.length}</b>條結果。為避免卡頓，僅顯示前<b>${MAX_RESULTS}</b>條。`;
+                warningMsg.innerHTML = `找到 <b>${results.length}</b> 條結果。為避免瀏覽器卡頓，僅顯示前 <b>${MAX_RESULTS}</b> 條。`;
                 resultsDiv.appendChild(warningMsg);
             }
 
+            // 渲染卡片邏輯
             displayResults.forEach((item, idx) => {
                 const card = document.createElement('div');
                 card.className = 'result-card';
@@ -336,11 +374,10 @@
                 resultsDiv.appendChild(card);
             });
 
-            // 如果有截斷，在底部再補一個小提示
             if (results.length > MAX_RESULTS) {
                 const bottomMsg = document.createElement('div');
                 bottomMsg.style.cssText = "text-align: center; margin-top: 10px; color: var(--ink-faint); font-size: 13px;";
-                bottomMsg.innerText = `— 還有${results.length - MAX_RESULTS}條結果已省略 —`;
+                bottomMsg.innerText = `— 後面還有 ${results.length - MAX_RESULTS} 條結果已省略 —`;
                 resultsDiv.appendChild(bottomMsg);
             }
         }
