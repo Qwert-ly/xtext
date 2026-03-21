@@ -15,7 +15,6 @@ def char_count():
     W = load_workbook(filename=SHEET)
     wb = W['字典表']
     max_r = wb.max_row
-    df = pd.read_parquet('data')
     idx = create_idx('ctext - 副本 - 副本', 'index.json', save=True)
     xizhou = create_idx(r'xtext\dif', 'index-xizhou.json', save=True)
 
