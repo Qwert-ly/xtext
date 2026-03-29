@@ -1,21 +1,22 @@
 from util import *
 from openpyxl import load_workbook
+import pandas as pd
+import re
 
-SHEET = '上古汉语音节表.xlsx'
+def n_results(index, char, zhou=False, src=False):
+    results = index.get(char, [])
+
+    if src:
+        return results[0][0][:-4].split('.')[-1] if results and all(result[0] == results[0][0] for result in results) and not zhou else ''
+    else:
+        return len(results) if results else ''
+
 
 def char_count():
-    def result_count(index, char, zhou=False, src=False):
-        results = index.get(char, [])
-
-        if src:
-            return results[0][0][:-4].split('.')[-1] if results and all(result[0] == results[0][0] for result in results) and not zhou else ''
-        else:
-            return len(results) if results else ''
-    
-    W = load_workbook(filename=SHEET)
+    W = load_workbook(filename='上古汉语音节表.xlsx')
     wb = W['字典表']
     max_r = wb.max_row
-    idx = create_idx('ctext - 副本 - 副本', 'index.json', save=True)
+    idx = create_idx(r'xtext\ctext - 副本 - 副本', 'index.json', save=True)
     xizhou = create_idx(r'xtext\dif', 'index-xizhou.json', save=True)
 
     西周 = []
@@ -23,9 +24,9 @@ def char_count():
     出處 = []
     for i in range(2, max_r + 1):
         c = wb['A' + str(i)].value
-        西周.append(result_count(xizhou, c, zhou=True))
-        次數.append(result_count(idx, c))
-        出處.append(result_count(idx, c, src=True))
+        西周.append(n_results(xizhou, c, zhou=True))
+        次數.append(n_results(idx, c))
+        出處.append(n_results(idx, c, src=True))
     df = pd.DataFrame({
         '總出現次數': 次數,
         '見西周': 西周,
@@ -42,8 +43,8 @@ def char_count():
             ws.cell(row=r_idx, column=c_idx, value=value)
     wb.save(f'_zd_语料统计.xlsx')
 
-    noww = read_files('ctext - 副本 - 副本')[1]
-    now = set(pd.read_excel(SHEET, sheet_name='字典表', header=None).iloc[:, 0].dropna())
+    noww = read_files(r'xtext\ctext - 副本 - 副本')[1]
+    now = set(pd.read_excel('上古汉语音节表.xlsx', sheet_name='字典表', header=None).iloc[:, 0].dropna())
     print(noww-now)
     print(len(noww-now))
 
@@ -51,10 +52,11 @@ def char_count():
 def clean_brackets(text):
     if pd.isna(text) or text == '':
         return text
+
     return re.sub(r'\{[^}]*}', '', str(text))
 
 
-def clean_bracket(input_file=SHEET, output_file='_xy_无括号.xlsx', sheet_name='小韻表', column='字'):
+def clean_bracket(input_file='上古汉语音节表.xlsx', output_file='_xy_无括号.xlsx', sheet_name='小韻表', column='字'):
     print(f"正在读取文件 {input_file} 的工作表 '{sheet_name}'...")
     df = pd.read_excel(input_file, sheet_name=sheet_name)
 
@@ -73,9 +75,9 @@ def clean_bracket(input_file=SHEET, output_file='_xy_无括号.xlsx', sheet_name
     df.to_excel(output_file, sheet_name=sheet_name, index=False)
     print(f"处理完成！文件已保存为 {output_file}")
 
-def dict_(dir='ctext - 副本 - 副本'):
+def dict_(dir=r'xtext\ctext - 副本 - 副本'):
     """查找dir下各个txt未收于字典表的字"""
-    char_list = frozenset(pd.read_excel(SHEET, sheet_name='字典表', header=None).iloc[:, 0].dropna())
+    char_list = frozenset(pd.read_excel('上古汉语音节表.xlsx', sheet_name='字典表', header=None).iloc[:, 0].dropna())
 
     all_new_chars = set()
     with open('_new_chars.txt', 'w', encoding='utf-8') as file:
@@ -102,6 +104,7 @@ def split_syllable(ipa):
 
     Args:
         ipa: IPA音标字符串
+        pinyin: 拼音字符串
 
     Returns:
         tuple: (声母, 介音类别, 韵母)
@@ -144,7 +147,7 @@ def split_syllable(ipa):
 
 
 def parse():
-    df = pd.read_excel(SHEET, sheet_name='小韻表', keep_default_na=False)
+    df = pd.read_excel('上古汉语音节表.xlsx', sheet_name='小韻表', keep_default_na=False)
 
     # data = {
     #         'IPA': ['tsʰˤaʔ', 'pʰaŋh', 'nrap', 'ẘˤres', 'rawk', 'r̥ˤat', 'C.rəmʔ'],
@@ -216,7 +219,7 @@ def compare_texts(text1, text2, texts, all_chars):
 
 
 def search_worddif():
-    texts, all_chars = read_files('ctext - 副本 - 副本')
+    texts, all_chars = read_files(r'xtext\ctext - 副本 - 副本')
     while True:
         compare_texts(input('text1:').strip(), input('text2:').strip(), texts, all_chars)
 
@@ -234,7 +237,7 @@ def search_tu():
             if sr is not None:
                 for _, t in sr.iterrows():
                     print(f'{r[1]} ({t.iloc[4]}小韻：{t.iloc[5]}{t.iloc[6]}切) {r[2]}')
-    texts_dir = 'ctext - 副本 - 副本'
+    texts_dir = r'xtext\ctext - 副本 - 副本'
     df = pd.read_parquet('tshet-uinh')
     df.columns = ['頁', '行', '音韻地位描述', '聲調', '韻目', '序数', '小韻', '字頭', '釋義']
     sr = pd.read_parquet('tshet-uinh-sr')
@@ -252,7 +255,7 @@ def search_tu():
 
 
 def search_char():
-    texts_dir = 'ctext - 副本 - 副本'
+    texts_dir = r'xtext\ctext - 副本 - 副本'
     df = pd.read_parquet('形聲考_240425')
     df.columns = ['聲首', '諧聲域', '音節類型', '二級聲符', '切拼',
                   '聲', '開合', '等', '韻', '調',
@@ -287,7 +290,7 @@ def expand_characters(df):
 
 
 def to_dict(to='_zd_output.xlsx'):
-    df = pd.read_excel(SHEET, sheet_name='小韻表', keep_default_na=False)
+    df = pd.read_excel('上古汉语音节表.xlsx', sheet_name='小韻表', keep_default_na=False)
     df['字'] = df['字'].apply(clean_brackets)
     x_df = expand_characters(df[['字', 'IPA']])
 
@@ -321,7 +324,7 @@ def main_panel():
 
         elif choice == '2':
             print("\n清理Excel花括号...")
-            in_file = input("  输入文件名 (默认 上古汉语音节表.xlsx): ").strip() or SHEET
+            in_file = input("  输入文件名 (默认 上古汉语音节表.xlsx): ").strip() or '上古汉语音节表.xlsx'
             out_file = input("  输出文件名 (默认 _xy_无括号.xlsx): ").strip() or '_xy_无括号.xlsx'
             sheet = input("  工作表名 (直接回车默认 '小韻表'): ").strip() or '小韻表'
             col = input("  要清理的列字母 (直接回车默认 '字'): ").strip() or '字'
@@ -329,7 +332,7 @@ def main_panel():
 
         elif choice == '3':
             print("\n查找未收录字...")
-            target_dir = input(r"  txt所在目录 (直接回车默认 'ctext - 副本 - 副本'): ").strip()
+            target_dir = input(r"  txt所在目录 (直接回车默认 'xtext\ctext - 副本 - 副本'): ").strip()
             if target_dir:
                 dict_(dir=target_dir)
             else:

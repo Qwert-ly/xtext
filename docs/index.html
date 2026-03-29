@@ -42,7 +42,10 @@
         .result-card { background: var(--paper-card); margin-bottom: 28px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 3px 20px rgba(0,0,0,0.05); overflow: hidden; animation: fadeUp 0.3s ease both; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .char-banner { background: var(--indigo); color: #fff; padding: 20px 28px; display: flex; align-items: center; gap: 24px; }
-        .char-glyph { font-size: 64px; font-weight: 700; line-height: 1; color: #fff; flex-shrink: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .char-glyph-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+        .char-glyph { font-size: 64px; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.3); user-select: text; }
+        .zi-link { font-size: 11px; color: rgba(255,255,255,0.5); text-decoration: none; letter-spacing: 0.06em; border-bottom: 1px dashed rgba(255,255,255,0.3); transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
+        .zi-link:hover { color: #f0c27f; border-bottom-color: #f0c27f; }
         .char-phonetics { flex: 1; }
         .phonetic-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
         .phonetic-label { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; width: 28px; flex-shrink: 0; }
@@ -55,27 +58,24 @@
         .xiesheng-tag { background: rgba(240, 194, 127, 0.2); color: #f0c27f; border-color: rgba(240, 194, 127, 0.4); cursor: pointer; transition: all 0.2s; }
         .xiesheng-tag:hover { background: rgba(240, 194, 127, 0.4); transform: translateY(-1px); }
 
-        .freq-strip { background: var(--indigo-light); border-bottom: 1px solid var(--border-light); padding: 10px 28px; display: flex; gap: 28px; flex-wrap: wrap; }
         .freq-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
         .freq-label { color: var(--ink-faint); }
         .freq-num { font-family: "Noto Sans Mono", monospace; font-size: 13px; color: var(--indigo); font-weight: 500; }
-        .freq-bar-wrap { width: 60px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .freq-bar-wrap { width: 48px; height: 4px; background: var(--border); border-radius: 3px; overflow: hidden; }
         .freq-bar { height: 100%; background: var(--indigo); border-radius: 3px; opacity: 0.45; }
-        .card-body { padding: 22px 28px; }
-        .section { margin-bottom: 20px; }
+        .card-body { padding: 18px 24px; }
+        .section { margin-bottom: 16px; }
         .section:last-child { margin-bottom: 0; }
-        .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .section-icon { width: 20px; height: 20px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; font-weight: 700; }
-        .section-title { font-size: 13px; font-weight: 500; letter-spacing: 0.1em; color: var(--ink-soft); }
+        .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--ink-faint); text-transform: uppercase; }
         .section-note { font-size: 12px; color: var(--ink-faint); margin-left: 4px; }
-        .section-divider { height: 1px; background: var(--border-light); margin: 20px 0; }
+        .section-divider { height: 1px; background: var(--border-light); margin: 16px 0; }
         .meanings-list { list-style: none; counter-reset: sense; }
-        .meanings-list li { counter-increment: sense; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
+        .meanings-list li { counter-increment: sense; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
         .meanings-list li:last-child { margin-bottom: 0; }
-        .meanings-list li::before { content: counter(sense); min-width: 22px; height: 22px; background: var(--vermilion); color: #fff; border-radius: 50%; font-size: 11px; font-family: "Noto Sans Mono", monospace; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 3px; }
-        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 12px 16px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; }
+        .meanings-list li::before { content: counter(sense); min-width: 20px; height: 20px; background: var(--vermilion); color: #fff; border-radius: 50%; font-size: 11px; font-family: "Noto Sans Mono", monospace; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 10px 14px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; }
         .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); }
-        .text-block.etymology { border-left-color: var(--vermilion); background: var(--vermilion-light); }
         .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     </style>
@@ -359,52 +359,30 @@
                     meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${m}</span></li>`).join('')}</ol>`;
                 }
 
-                const calcNorm = (val, max) => val ? (100 * Math.sqrt(val / max)).toFixed(2) : null;
-                const normTotal = calcNorm(item.c, maxTotal);
-                const normZhou = calcNorm(item.x, maxZhou);
-
-                const freqHtml = [
-                    freqItem('總出現', item.c, maxTotal),
-                    freqItem('先秦歸一', normTotal, 100),
-                    freqItem('見西周', item.x, maxZhou),
-                    freqItem('西周歸一', normZhou, 100),
-                ].filter(Boolean).join('');
-
                 card.innerHTML = `
                     <div class="char-banner">
-                        <div class="char-glyph">${item.z || '？'}</div>
+                        <div class="char-glyph-wrap">
+                            <div class="char-glyph">${item.z || '？'}</div>
+                            ${item.z ? `<a class="zi-link" href="https://zi.tools/zi/${item.z}" target="_blank" rel="noopener" title="在字統網查閱字源">字統↗</a>` : ''}
+                        </div>
                         <div class="char-phonetics">
                             <div class="phonetic-row"><span class="phonetic-label">擬音</span><span class="phonetic-value">${item.y || '—'}</span></div>
                             <div class="phonetic-row"><span class="phonetic-label">拼音</span><span class="pinyin-value">${item.p || '—'}</span></div>
                             ${tags ? `<div class="char-tags">${tags}</div>` : ''}
                         </div>
                     </div>
-                    ${freqHtml ? `<div class="freq-strip">${freqHtml}</div>` : ''}
                     <div class="card-body">
                         <div class="section">
                             <div class="section-header">
-                                <div class="section-icon" style="background:var(--vermilion-light);color:var(--vermilion);">義</div>
-                                <span class="section-title">釋義</span>${meaningNote}
+                                <span class="section-label">釋義</span>${meaningNote}
                             </div>
                             ${meaningsHtml}
                         </div>
-                        ${item.e ? `
-                        <div class="section-divider"></div>
-                        <div class="section">
-                            <div class="section-header">
-                                <div class="section-icon" style="background:var(--vermilion-light);color:var(--vermilion);">源</div>
-                                <span class="section-title">
-                                    <a href="https://zi.tools/zi/${item.z}" target="_blank" style="color:inherit; text-decoration:none; border-bottom: 1px dashed var(--ink-faint); transition: all 0.2s;" onmouseover="this.style.color='var(--vermilion)'; this.style.borderBottomColor='var(--vermilion)';" onmouseout="this.style.color='inherit'; this.style.borderBottomColor='var(--ink-faint)';">字源諸說 (zi.tools)</a>
-                                </span>
-                            </div>
-                            <div class="text-block etymology">${item.e}</div>
-                        </div>` : ''}
                         ${item.n ? `
                         <div class="section-divider"></div>
                         <div class="section">
                             <div class="section-header">
-                                <div class="section-icon" style="background:var(--gold-light);color:var(--gold);">注</div>
-                                <span class="section-title">注釋</span>
+                                <span class="section-label">注釋</span>
                             </div>
                             <div class="text-block annotation">${item.n}</div>
                         </div>` : ''}
