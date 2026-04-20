@@ -127,66 +127,154 @@
         let maxTotal = 1;
         let maxZhou = 1;
 
-        // 通用下載與流式解壓函數
-        async function fetchGzJson(url, progressCallback) {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`請求 ${url} 失敗`);
-            const contentLength = response.headers.get('content-length');
-            const total = contentLength ? parseInt(contentLength, 10) : 0;
+        // IndexedDB 緩存層
+        const _DB_NAME = 'nocm-dict-cache';
+        const _DB_VER  = 1;
+        const _STORE   = 'files';
+
+        function _openDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(_DB_NAME, _DB_VER);
+                req.onupgradeneeded = e => {
+                    e.target.result.createObjectStore(_STORE, { keyPath: 'url' });
+                };
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror   = e => reject(e.target.error);
+            });
+        }
+        async function _getCached(url) {
+            const db = await _openDB();
+            return new Promise((resolve, reject) => {
+                const req = db.transaction(_STORE, 'readonly').objectStore(_STORE).get(url);
+                req.onsuccess = e => resolve(e.target.result || null);
+                req.onerror   = e => reject(e.target.error);
+            });
+        }
+        async function _setCached(url, data, etag, lastModified) {
+            const db = await _openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(_STORE, 'readwrite');
+                tx.objectStore(_STORE).put({ url, data, etag, lastModified });
+                tx.oncomplete = () => resolve();
+                tx.onerror    = e => reject(e.target.error);
+            });
+        }
+
+        // 帶緩存的下載函數
+        // 返回 { data, fromCache }
+        async function fetchGzJsonCached(url, progressCallback) {
+            const cached = await _getCached(url);
+
+            // 構造條件請求頭，讓服務器決定是否需要重新傳輸
+            const headers = {};
+            if (cached?.etag)         headers['If-None-Match']     = cached.etag;
+            else if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
+
+            let response;
+            try {
+                // cache: 'no-store' 繞過瀏覽器自身緩存，手動管理
+                response = await fetch(url, { headers, cache: 'no-store' });
+            } catch (networkErr) {
+                if (cached) return { data: cached.data, fromCache: true };
+                throw networkErr;
+            }
+
+            // 304 Not Modified → 直接用 IndexedDB 中的舊數據
+            if (response.status === 304 && cached) {
+                progressCallback && progressCallback(1, 1);
+                return { data: cached.data, fromCache: true };
+            }
+
+            if (!response.ok) {
+                if (cached) return { data: cached.data, fromCache: true };
+                throw new Error(`請求 ${url} 失敗（HTTP ${response.status}）`);
+            }
+
+            // 200，流式解壓
+            const etag         = response.headers.get('ETag');
+            const lastModified = response.headers.get('Last-Modified');
+            const total        = parseInt(response.headers.get('content-length') || '0', 10);
             let loaded = 0;
 
             const progressStream = new TransformStream({
                 transform(chunk, controller) {
                     loaded += chunk.byteLength;
-                    if (progressCallback) progressCallback(loaded, total);
+                    progressCallback && progressCallback(loaded, total);
                     controller.enqueue(chunk);
                 }
             });
 
-            const decompressedStream = response.body
+            const reader = response.body
                 .pipeThrough(progressStream)
                 .pipeThrough(new DecompressionStream('gzip'))
-                .pipeThrough(new TextDecoderStream());
+                .pipeThrough(new TextDecoderStream())
+                .getReader();
 
-            const reader = decompressedStream.getReader();
             let jsonText = '';
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 jsonText += value;
             }
-            return JSON.parse(jsonText);
+            const data = JSON.parse(jsonText);
+
+            // 異步寫入 IndexedDB，不阻塞主流程
+            _setCached(url, data, etag, lastModified).catch(e => console.warn('緩存寫入失敗:', e));
+
+            return { data, fromCache: false };
         }
 
+        // 初始化
         async function initDictionary() {
-            const input = document.getElementById('searchInput');
-            const btn = document.getElementById('searchBtn');
+            const input  = document.getElementById('searchInput');
+            const btn    = document.getElementById('searchBtn');
             const status = document.getElementById('extraStatus');
 
             try {
-                dictData = await fetchGzJson('base.json.gz', (loaded, total) => {
-                    const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
-                    input.placeholder = `加載基礎字庫... ${pct}`;
-                });
+                // 先嘗試讀取 IndexedDB 判斷是否有緩存，以便顯示合適的初始提示
+                const hasCached = !!(await _getCached('base.json.gz'));
+                if (hasCached) input.placeholder = '正在驗證字庫版本…';
 
-                input.placeholder = `已加載${dictData.length}字 — 請輸入關鍵字`;
+                const { data: baseData, fromCache: baseCached } = await fetchGzJsonCached(
+                    'base.json.gz',
+                    (loaded, total) => {
+                        if (baseCached) return; // 304 時不更新進度（瞬間完成）
+                        const pct = total ? Math.round((loaded / total) * 100) + '%'
+                                          : (loaded / 1024 / 1024).toFixed(2) + ' MB';
+                        input.placeholder = `下載基礎字庫… ${pct}`;
+                    }
+                );
+                dictData = baseData;
+
+                input.placeholder = baseCached
+                    ? `已從緩存載入 ${dictData.length} 字 — 請輸入關鍵字`
+                    : `已載入 ${dictData.length} 字 — 請輸入關鍵字`;
                 input.disabled = false;
-                btn.disabled = false;
+                btn.disabled   = false;
                 input.focus();
 
                 status.style.display = 'block';
-                const extraData = await fetchGzJson('extra.json.gz', (loaded, total) => {
-                    const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
-                    status.innerText = `獲取釋義與注釋... ${pct}`;
-                });
+                status.innerText = baseCached ? '字庫已是最新，正在驗證釋義版本…' : '正在獲取釋義與注釋…';
+
+                const { data: extraData, fromCache: extraCached } = await fetchGzJsonCached(
+                    'extra.json.gz',
+                    (loaded, total) => {
+                        if (extraCached) return;
+                        const pct = total ? Math.round((loaded / total) * 100) + '%'
+                                          : (loaded / 1024 / 1024).toFixed(2) + ' MB';
+                        status.innerText = `下載釋義與注釋… ${pct}`;
+                    }
+                );
 
                 extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
-
                 maxTotal = Math.max(...dictData.map(item => item.c || 0));
-                maxZhou = Math.max(...dictData.map(item => item.x || 0));
+                maxZhou  = Math.max(...dictData.map(item => item.x || 0));
 
-                status.innerText = '擴展數據加載完成！';
-                setTimeout(() => { status.style.display = 'none'; }, 2000);
+                const cacheMsg = (baseCached && extraCached) ? '（已從本地緩存載入，無需重新下載）'
+                               : (!baseCached && !extraCached) ? '（已更新本地緩存）'
+                               : '（部分文件已更新）';
+                status.innerText = `數據加載完成 ${cacheMsg}`;
+                setTimeout(() => { status.style.display = 'none'; }, 3000);
 
                 // 加載期間搜了東西，加載完自動刷新渲染注釋
                 if (input.value.trim()) searchDict();
@@ -194,6 +282,7 @@
             } catch (error) {
                 console.error('加載錯誤:', error);
                 input.placeholder = '加載字典失敗，請檢查網絡';
+                status.style.display = 'none';
             }
         }
 
