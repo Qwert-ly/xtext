@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="上古汉语字典查询">
+    <meta property="og:description" content="新最小上古汉语（NOCM）查询工具，支援多模式检索与上古音拟音查询">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://qwert-ly.github.io/xtext/">
+    <link rel="canonical" href="https://qwert-ly.github.io/xtext/">
     <title>上古漢語字典查詢</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📜</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;700&family=Noto+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -15,6 +21,24 @@
             --gold: #8b6914; --gold-light: #f5eed8;
             --border: #d6cfc5; --border-light: #e8e2d8;
         }
+
+        /* 暗色模式支援 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ink: #e8e2d8; --ink-soft: #a8a095; --ink-faint: #7a736a;
+                --paper: #1c1a17; --paper-card: #25221e; --paper-inset: #141210;
+                --vermilion: #d94b3a; --vermilion-light: #3a1c18;
+                --indigo: #6b84c4; --indigo-light: #1e2638;
+                --gold: #c2a153; --gold-light: #302612;
+                --border: #4a4540; --border-light: #36322d;
+            }
+            body {
+                background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%231c1a17'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%2336322d' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%2336322d' opacity='0.5'/%3E%3C/svg%3E");
+            }
+            input[type="text"] { color: var(--ink); }
+            button:disabled { background: var(--ink-soft); }
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: "Noto Serif TC", "PingFang TC", "STSong", serif; background-color: var(--paper);
@@ -24,6 +48,7 @@
         .page-header { text-align: center; margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
         .page-header::after { content: ''; display: block; width: 60px; height: 2px; background: var(--vermilion); margin: 12px auto 0; }
         .page-header h1 { font-size: 26px; font-weight: 500; letter-spacing: 0.15em; color: var(--indigo); }
+        .page-header h1 a:hover { color: var(--vermilion); }
         .search-container { position: sticky; top: 0; background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 12px; }
         .search-box { display: flex; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--paper-card); box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: border-color 0.2s, box-shadow 0.2s; }
         .search-box:focus-within { border-color: var(--indigo); box-shadow: 0 2px 16px rgba(44,62,107,0.12); }
@@ -33,11 +58,30 @@
         .radio-btn { padding: 6px 18px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--border); border-radius: 20px; color: var(--ink-soft); transition: all 0.2s ease; background: var(--paper-card); letter-spacing: 0.05em; }
         .radio-label:hover .radio-btn { border-color: var(--indigo-light); color: var(--indigo); }
         .radio-label input:checked + .radio-btn { background: var(--indigo); color: #fff; border-color: var(--indigo); box-shadow: 0 2px 8px rgba(44,62,107,0.2); }
-        input[type="text"] { flex: 1; padding: 13px 16px; font-size: 15px; font-family: inherit; border: none; background: transparent; outline: none; color: var(--ink); }
+
+        /* 無障礙：增加鍵盤聚焦樣式 */
+        .radio-label input:focus-visible + .radio-btn { outline: 2px solid var(--indigo); outline-offset: 2px; }
+
+        input[type="text"] { flex: 1; padding: 13px 16px; font-size: 15px; font-family: inherit; border: none; background: transparent; outline: none; }
         input[type="text"]::placeholder { color: var(--ink-faint); }
         button { padding: 13px 24px; font-size: 14px; font-family: inherit; letter-spacing: 0.1em; cursor: pointer; background: var(--indigo); color: #fff; border: none; transition: background 0.2s; }
         button:hover { background: #1e2b4e; }
-        button:disabled { background: #aaa; cursor: not-allowed; }
+        button:disabled { cursor: not-allowed; opacity: 0.7; }
+
+        #updateBar {
+            display: none; align-items: center; justify-content: space-between; gap: 12px;
+            margin-bottom: 20px; padding: 10px 16px;
+            background: var(--indigo-light); color: var(--indigo);
+            border: 1px solid rgba(44,62,107,0.2); border-radius: 4px;
+            font-size: 13.5px; letter-spacing: 0.05em;
+            animation: fadeUp 0.3s ease both;
+        }
+        #updateBar .update-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        #updateBar .btn-reload { padding: 4px 14px; font-size: 12px; font-family: inherit; background: var(--indigo); color: #fff; border: none; border-radius: 3px; cursor: pointer; letter-spacing: 0.08em; transition: background 0.2s; }
+        #updateBar .btn-reload:hover { background: #1e2b4e; }
+        #updateBar .btn-dismiss { padding: 4px 10px; font-size: 12px; font-family: inherit; background: transparent; color: var(--indigo); border: 1px solid var(--indigo); border-radius: 3px; cursor: pointer; }
+        #updateBar .btn-dismiss:hover { background: rgba(44,62,107,0.08); }
+
         #extraStatus { text-align: center; font-size: 13px; color: var(--gold); margin-bottom: 24px; display: none; }
         .result-card { background: var(--paper-card); margin-bottom: 28px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 3px 20px rgba(0,0,0,0.05); overflow: hidden; animation: fadeUp 0.3s ease both; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -53,16 +97,8 @@
         .pinyin-value { font-family: "Noto Sans Mono", monospace; font-size: 14px; color: rgba(255,255,255,0.75); letter-spacing: 0.05em; }
         .char-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
         .tag { display: inline-block; padding: 2px 10px; border-radius: 2px; font-size: 11px; letter-spacing: 0.06em; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.25); }
-
-        /* 諧聲域專屬 Tag 樣式 */
         .xiesheng-tag { background: rgba(240, 194, 127, 0.2); color: #f0c27f; border-color: rgba(240, 194, 127, 0.4); cursor: pointer; transition: all 0.2s; }
         .xiesheng-tag:hover { background: rgba(240, 194, 127, 0.4); transform: translateY(-1px); }
-
-        .freq-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
-        .freq-label { color: var(--ink-faint); }
-        .freq-num { font-family: "Noto Sans Mono", monospace; font-size: 13px; color: var(--indigo); font-weight: 500; }
-        .freq-bar-wrap { width: 48px; height: 4px; background: var(--border); border-radius: 3px; overflow: hidden; }
-        .freq-bar { height: 100%; background: var(--indigo); border-radius: 3px; opacity: 0.45; }
         .card-body { padding: 18px 24px; }
         .section { margin-bottom: 16px; }
         .section:last-child { margin-bottom: 0; }
@@ -74,63 +110,115 @@
         .meanings-list li { counter-increment: sense; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
         .meanings-list li:last-child { margin-bottom: 0; }
         .meanings-list li::before { content: counter(sense); min-width: 20px; height: 20px; background: var(--vermilion); color: #fff; border-radius: 50%; font-size: 11px; font-family: "Noto Sans Mono", monospace; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
-        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 10px 14px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; }
-        .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); }
+        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 10px 14px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; word-break: break-all; }
+        .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); color: var(--ink); }
         .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+        @media (max-width: 480px) {
+            .char-banner { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .char-glyph { font-size: 48px; }
+            .phonetic-value { font-size: 15px; }
+        }
+        .copy-btn {
+            background: transparent; border: none; cursor: pointer;
+            font-size: 14px; padding: 2px 6px; margin-left: 4px;
+            border-radius: 4px; transition: background 0.2s; color: inherit;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
-    <div class="page-header">
+    <header class="page-header">
         <h1>
-            <a href="https://zhuanlan.zhihu.com/p/12987993957" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--vermilion)'" onmouseout="this.style.color='inherit'">
+            <a href="https://zhuanlan.zhihu.com/p/12987993957" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;">
                 新最小上古漢語（NOCM）查詢
             </a>
         </h1>
-    </div>
-    <div class="search-container" role="search">
+    </header>
+
+    <search class="search-container">
         <div class="search-box">
-            <label for="searchInput" class="sr-only">搜尋上古漢語字典</label>
+            <label for="searchInput" class="sr-only">搜索上古漢語字典</label>
             <input type="text" id="searchInput" placeholder="正在加載字庫…"
                    onkeypress="handleEnter(event)" disabled
                    aria-label="搜尋上古漢語字典"
                    aria-describedby="searchModeDesc"
-                   autocomplete="off" spellcheck="false" maxlength="200">
+                   autocomplete="off" spellcheck="false" maxlength="100"
+                   title="按'/'快速回到搜索框">
             <button id="searchBtn" onclick="searchDict()" disabled aria-label="執行查詢">查詢</button>
         </div>
         <div class="search-options" role="group" aria-labelledby="searchModeDesc">
-            <span id="searchModeDesc" class="sr-only">選擇搜尋模式</span>
+            <span id="searchModeDesc" class="sr-only">選擇搜索模式</span>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="default" checked aria-label="默認模式：自動分詞查詢">
+                <input type="radio" name="searchMode" value="default" checked aria-label="默認模式：自動分詞查詢" onchange="searchDict()">
                 <span class="radio-btn">默認</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="exact" aria-label="精確模式：完整符合搜尋">
+                <input type="radio" name="searchMode" value="exact" aria-label="精確模式：完整符合搜尋" onchange="searchDict()">
                 <span class="radio-btn">精確</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="regex" aria-label="正則模式：使用正規表達式搜尋">
+                <input type="radio" name="searchMode" value="regex" aria-label="正則模式：使用正規表達式搜尋" onchange="searchDict()">
                 <span class="radio-btn">正則</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="meaning" aria-label="釋義反查模式：從釋義文字反向查詢">
+                <input type="radio" name="searchMode" value="meaning" aria-label="釋義反查模式：從釋義文字反向查詢" onchange="searchDict()">
                 <span class="radio-btn">釋義反查</span>
             </label>
         </div>
+    </search>
+
+    <div id="updateBar" role="alert" aria-live="polite">
+        <span>🔄 字庫有新版本已下載至本地，重新載入即可使用</span>
+        <div class="update-actions">
+            <button class="btn-reload" onclick="location.reload()">重新載入</button>
+            <button class="btn-dismiss"
+                    onclick="document.getElementById('updateBar').style.display='none'"
+                    aria-label="關閉提示">✕</button>
+        </div>
     </div>
+
     <div id="extraStatus" role="status" aria-live="polite"></div>
     <div id="regexError" role="alert" aria-live="assertive" style="display:none; text-align:center; margin-bottom:16px; padding:10px 16px; background:var(--vermilion-light); color:var(--vermilion); border:1px solid rgba(192,57,43,0.2); border-radius:4px; font-size:13.5px; letter-spacing:0.05em;"></div>
-    <div id="results" aria-live="polite" aria-label="查詢結果"></div>
+
+    <main id="results" aria-live="polite" aria-label="查詢結果"></main>
 
     <script>
         let dictData = [];
-        let maxTotal = 1;
-        let maxZhou = 1;
+        const meaningIndex = new Map();
+        const DICT_CACHE = 'nocm-dict-v1';
+        let _updatedFiles = false;
 
-        // 通用下載與流式解壓函數
-        async function fetchGzJson(url, progressCallback) {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`請求 ${url} 失敗`);
+        // 全域快捷鍵：按下 / 快速 focus 搜尋框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '/' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+        });
+
+        // XSS防護
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+        function escapeJS(str) {
+            if (!str) return '';
+            return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        function showUpdateNotification() {
+            const bar = document.getElementById('updateBar');
+            if (bar) bar.style.display = 'flex';
+        }
+
+        async function streamAndParseGz(response, progressCallback) {
             const contentLength = response.headers.get('content-length');
             const total = contentLength ? parseInt(contentLength, 10) : 0;
             let loaded = 0;
@@ -158,85 +246,212 @@
             return JSON.parse(jsonText);
         }
 
+        async function fetchGzJson(url, progressCallback) {
+            const fetchFromNetwork = async () => {
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`請求 ${url} 失敗`);
+
+                // 為了存入緩存，需 clone response
+                const respForCache = ('caches' in window) ? resp.clone() : null;
+                const data = await streamAndParseGz(resp, progressCallback);
+
+                if (respForCache) {
+                    const cache = await caches.open(DICT_CACHE);
+                    await cache.put(url, respForCache);
+                }
+                return { data, fromCache: false };
+            };
+
+            if (!('caches' in window)) return fetchFromNetwork();
+
+            const cache = await caches.open(DICT_CACHE);
+            const cachedResp = await cache.match(url);
+
+            if (cachedResp) {
+                (async () => {
+                    try {
+                        const etag = cachedResp.headers.get('ETag');
+                        const lastMod = cachedResp.headers.get('Last-Modified');
+                        const condHeaders = {};
+                        if (etag) condHeaders['If-None-Match'] = etag;
+                        if (lastMod) condHeaders['If-Modified-Since'] = lastMod;
+
+                        const netResp = await fetch(url, { cache: 'no-cache', headers: condHeaders });
+
+                        if (netResp.ok) {
+                            const newEtag = netResp.headers.get('ETag');
+                            const newLastMod = netResp.headers.get('Last-Modified');
+
+                            if (etag && newEtag && etag === newEtag) return;
+                            if (lastMod && newLastMod && lastMod === newLastMod) return;
+
+                            const oldLen = cachedResp.headers.get('Content-Length');
+                            const newLen = netResp.headers.get('Content-Length');
+                            if (!newEtag && !newLastMod && oldLen && newLen && oldLen === newLen) return;
+
+                            await cache.put(url, netResp);
+                            if (!_updatedFiles) {
+                                _updatedFiles = true;
+                                showUpdateNotification();
+                            }
+                        }
+                    } catch (_e) { console.warn(`${url} 背景更新檢查失敗:`, _e); }
+                })();
+                const data = await streamAndParseGz(cachedResp.clone(), progressCallback);
+                return { data, fromCache: true };
+            }
+
+            return fetchFromNetwork();
+        }
+
+        async function copyText(text, btnElement) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = btnElement.innerText;
+                btnElement.innerText = '✔️';
+                setTimeout(() => btnElement.innerText = originalText, 1500);
+            } catch (err) {
+                console.error('複製失敗:', err);
+            }
+        }
+
         async function initDictionary() {
-            const input = document.getElementById('searchInput');
-            const btn = document.getElementById('searchBtn');
+            const input  = document.getElementById('searchInput');
+            const btn    = document.getElementById('searchBtn');
             const status = document.getElementById('extraStatus');
 
+            // 1. 拆分 Try-Catch，基礎資料獨立載入保證核心功能可用
             try {
-                dictData = await fetchGzJson('base.json.gz', (loaded, total) => {
+                const { data: baseData } = await fetchGzJson('base.json.gz', (loaded, total) => {
                     const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
                     input.placeholder = `加載基礎字庫... ${pct}`;
                 });
-
-                input.placeholder = `已加載${dictData.length}字 — 請輸入關鍵字`;
+                dictData = baseData;
+                input.placeholder = `已加載${dictData.length}條目 — 請輸入關鍵字`;
                 input.disabled = false;
                 btn.disabled = false;
-                input.focus();
 
+                // 讀取 URL 參數，支援連結分享 (在 base 載入後立即執行一次確保不卡頓)
+                loadFromUrl();
+            } catch (error) {
+                console.error('基礎字典加載錯誤:', error);
+                input.placeholder = '加載字典失敗，請檢查網絡';
+                btn.textContent = '重試';
+                btn.disabled = false;
+                btn.onclick = initDictionary;
+                return; // 基礎失敗直接終止
+            }
+
+            // 2. 載入擴展資料
+            try {
                 status.style.display = 'block';
-                const extraData = await fetchGzJson('extra.json.gz', (loaded, total) => {
+                const { data: extraData } = await fetchGzJson('extra.json.gz', (loaded, total) => {
                     const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
                     status.innerText = `獲取釋義與注釋... ${pct}`;
                 });
 
-                extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
+                // 防錯機制：確保合併時資料對齊
+                if (dictData.length === extraData.length) {
+                    extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
 
-                maxTotal = Math.max(...dictData.map(item => item.c || 0));
-                maxZhou = Math.max(...dictData.map(item => item.x || 0));
+                    // 建立釋義倒排索引
+                    dictData.forEach((item, i) => {
+                        const addTextToIndex = (text) => {
+                            if (!text) return;
+                            for (const char of text) {
+                                if (!meaningIndex.has(char)) meaningIndex.set(char, new Set());
+                                meaningIndex.get(char).add(i);
+                            }
+                        };
+                        item.d?.[1]?.forEach(m => addTextToIndex(m));
+                        addTextToIndex(item.e);
+                        addTextToIndex(item.n);
+                    });
 
-                status.innerText = '擴展數據加載完成！';
+                    status.innerText = '擴展數據與索引加載完成！';
+                } else {
+                    console.error('資料長度不匹配，跳過擴展資料合併');
+                    status.innerText = '擴展數據異常，僅提供基礎查詢';
+                    status.style.color = 'var(--vermilion)';
+                }
                 setTimeout(() => { status.style.display = 'none'; }, 2000);
 
-                // 加載期間搜了東西，加載完自動刷新渲染注釋
-                if (input.value.trim()) searchDict();
-
+                // 若剛才有搜尋，重新渲染以展示釋義
+                if (input.value.trim()) searchDict(false);
             } catch (error) {
-                console.error('加載錯誤:', error);
-                input.placeholder = '加載字典失敗，請檢查網絡';
+                console.error('擴充字典加載錯誤:', error);
+                status.innerText = '釋義加載失敗，目前僅提供基礎查詢';
+                status.style.color = 'var(--vermilion)';
             }
         }
 
+        // 啟動
         initDictionary();
+
+        // 處理 URL 參數同步
+        function loadFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const q = params.get('q');
+            const mode = params.get('mode');
+
+            if (mode) {
+                const radio = document.querySelector(`input[name="searchMode"][value="${mode}"]`);
+                if (radio) radio.checked = true;
+            }
+            if (q) {
+                document.getElementById('searchInput').value = q;
+                searchDict(false);
+            }
+        }
+
+        // 監聽瀏覽器上一頁/下一頁
+        window.addEventListener('popstate', loadFromUrl);
 
         function handleEnter(e) { if (e.key === 'Enter') searchDict(); }
 
-        function freqItem(label, val, max) {
-            if (!val && val !== 0) return '';
-            const pct = Math.min(100, (parseFloat(val) / max) * 100);
-            return `<div class="freq-item"><span class="freq-label">${label}</span><span class="freq-num">${val}</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${pct}%"></div></div></div>`;
-        }
-
         function searchByDomain(domain) {
             document.getElementById('searchInput').value = domain;
-            // 自動幫使用者切換到「精確」搜尋模式
             document.querySelector('input[name="searchMode"][value="exact"]').checked = true;
             searchDict();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // 正則安全性：限制長度並偵測已知高風險 ReDoS 模式
         const REGEX_MAX_LEN = 100;
         const REDOS_PATTERN = /(\(.*\*.*\*|\(.*\+.*\+|\(\?=.*\*|\(\?!.*\*|(\.\*){3,}|\(\w+\+\)\+|\(\w+\*\)\+)/;
 
-        function safeRegex(str) {
+        // 修正：補上 flags 參數
+        function safeRegex(str, flags = "") {
             if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（最多 ${REGEX_MAX_LEN} 字元，目前 ${str.length} 字元）` };
             if (REDOS_PATTERN.test(str)) return { ok: false, msg: '正則表達式含有可能造成瀏覽器卡頓的危險模式，已拒絕執行' };
             try {
-                const r = new RegExp(str);
+                const r = new RegExp(str, flags);
                 return { ok: true, regex: r };
             } catch(e) {
                 return { ok: false, msg: `正則語法錯誤：${e.message}` };
             }
         }
 
-        function searchDict() {
+        // updateUrl 預設為 true，只有在內部調用（如從網址載入或載入擴充資料重新渲染）時才設為 false
+        function searchDict(updateUrl = true) {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
             const regexErrorDiv = document.getElementById('regexError');
             const mode = document.querySelector('input[name="searchMode"]:checked').value;
 
-            resultsDiv.innerHTML = '';
+            // URL 狀態同步
+            if (updateUrl) {
+                const url = new URL(window.location);
+                if (query) {
+                    url.searchParams.set('q', query);
+                    url.searchParams.set('mode', mode);
+                } else {
+                    url.searchParams.delete('q');
+                    url.searchParams.delete('mode');
+                }
+                if (window.location.search !== url.search) window.history.pushState({}, '', url);
+            }
+
+            resultsDiv.replaceChildren();
             regexErrorDiv.style.display = 'none';
             regexErrorDiv.textContent = '';
             if (!query) return;
@@ -248,12 +463,16 @@
 
             if (isRegexMode) {
                 let regexStr = query;
-                if (query.startsWith('/') && query.endsWith('/')) regexStr = query.slice(1, -1);
-                const result = safeRegex(regexStr);
+                let flags = "";
+                const match = query.match(/^\/(.+)\/([gimsuy]*)$/);
+                if (match) {
+                    regexStr = match[1];
+                    flags = match[2];
+                }
+                const result = safeRegex(regexStr, flags);
                 if (!result.ok) {
                     regexErrorDiv.textContent = result.msg;
                     regexErrorDiv.style.display = 'block';
-                    isRegexMode = false;
                     return;
                 }
                 regex = result.regex;
@@ -263,55 +482,52 @@
                 exactStr = (query.startsWith('"') && query.endsWith('"')) ? query.slice(1, -1) : query;
             }
 
-            let results = [];
+            let results;
 
-            // 如果是「默認模式」且沒有使用正則/精確的快捷語法，啟動「長文注音/分詞」邏輯
             if (mode === 'default' && !isRegexMode && !isExactMode) {
                 let tokens = [];
-                // 先用空格將字串切開
                 const parts = query.split(/\s+/);
                 for (let p of parts) {
                     if (!p) continue;
-                    // 如果這一個區塊包含漢字，就逐字拆解（自動過濾掉標點符號）
-                    if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(p)) {
-                        for (let ch of p) {
-                            if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(ch)) {
-                                tokens.push(ch);
+                    const matches = p.match(/[\u4E00-\u9FFF\u3400-\u4DBF]+|[^ \u4E00-\u9FFF\u3400-\u4DBF]+/g);
+                    if (matches) {
+                        matches.forEach(match => {
+                            if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(match)) {
+                                tokens.push(...match.split(''));
+                            } else {
+                                tokens.push(match);
                             }
-                        }
-                    } else {
-                        // 否則視為完整的拼音、擬音或諧聲域（如 wang, m.ru[g]s, A1）
-                        tokens.push(p);
+                        });
                     }
                 }
-
-                // 防呆：如果拆解後是空的（例如只輸入了一堆逗號），退回原字串查詢
                 if (tokens.length === 0) tokens = [query];
-
-                // 依序查詢每個 Token 並合併結果（沒查到的自動忽略）
-                // 用 Map 以字典索引為 key，確保同一字條不重複出現
-                const seen = new Map();
-                tokens.forEach(token => {
-                    let isUpperDomain = /^[A-Z0-9]+$/.test(token);
-                    dictData.forEach((item, idx) => {
-                        if (seen.has(idx)) return;
-                        const inChar = item.z === token;
-                        const inPhonetic = item.y && item.y.includes(token);
-                        const inPinyin = item.p && item.p.includes(token);
-                        const inDomain = (isUpperDomain && item.a && item.a.includes(token)) || item.a === token;
-                        if (inChar || inPhonetic || inPinyin || inDomain) seen.set(idx, item);
+                const parsedTokens = tokens.map(t => ({ val: t, isUpper: /^[A-Z0-9]+$/.test(t) }));
+                results = dictData.filter(item => {
+                    return parsedTokens.some(token => {
+                        return item.z === token.val ||
+                               (item.y && item.y.includes(token.val)) ||
+                               (item.p && item.p.includes(token.val)) ||
+                               (token.isUpper ? (item.a && item.a.includes(token.val)) : item.a === token.val);
                     });
                 });
-                results = Array.from(seen.values());
-            } else {
-                // 非默認模式（釋義反查、正則、精確），使用全局比對
-                results = dictData.filter(item => {
-                    if (mode === 'meaning') {
-                        const inMeaning = item.d && item.d[1] && item.d[1].some(m => m.includes(query));
-                        const inEtym = item.e && item.e.includes(query);
-                        const inNote = item.n && item.n.includes(query);
+            } else if (mode === 'meaning') {
+                // 釋義反查：利用倒排索引大幅縮小搜索範圍
+                if (query.length > 0 && meaningIndex.has(query[0])) {
+                    // 取出包含查詢詞「第一個字」的所有條目索引
+                    const candidateIndices = Array.from(meaningIndex.get(query[0]));
+                    // 僅在這些候選條目中進行完整字串匹配
+                    results = candidateIndices.map(i => dictData[i]).filter(item => {
+                        const inMeaning = item.d?.[1]?.some(m => m.includes(query));
+                        const inEtym    = item.e?.includes(query);
+                        const inNote    = item.n?.includes(query);
                         return inMeaning || inEtym || inNote;
-                    }
+                    });
+                } else {
+                    results = []; // 只要第一個字不在字典釋義裡，就必定無結果
+                }
+            } else {
+                // 正則或精確模式，依然維持全表掃描
+                results = dictData.filter(item => {
                     if (isRegexMode && regex) {
                         return regex.test(item.z) || regex.test(item.y) || regex.test(item.p) || regex.test(item.a);
                     }
@@ -324,11 +540,10 @@
 
             if (results.length === 0) {
                 resultsDiv.setAttribute('aria-label', '查詢結果：無結果');
-                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${query}」的相關字條</div>`;
+                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${escapeHtml(query)}」的相關字條</div>`;
                 return;
             }
 
-            // 數量限制與防卡死提示（長文模式放寬到 150 條）
             const MAX_RESULTS = 150;
             let displayResults = results;
             resultsDiv.setAttribute('aria-label', `查詢結果：共 ${results.length} 條`);
@@ -337,37 +552,53 @@
                 displayResults = results.slice(0, MAX_RESULTS);
                 const warningMsg = document.createElement('div');
                 warningMsg.style.cssText = "text-align: center; margin-bottom: 24px; padding: 12px; background: var(--gold-light); color: var(--gold); border: 1px solid rgba(139, 105, 20, 0.2); border-radius: 4px; font-size: 13.5px; letter-spacing: 0.05em;";
-                warningMsg.innerHTML = `找到 <b>${results.length}</b> 條結果。為避免瀏覽器卡頓，僅顯示前 <b>${MAX_RESULTS}</b> 條。`;
+                warningMsg.innerHTML = `找到<b>${results.length}</b>條結果。為免卡頓，僅顯示前<b>${MAX_RESULTS}</b>條`;
                 resultsDiv.appendChild(warningMsg);
             }
 
-            // 渲染卡片邏輯
+            const fragment = document.createDocumentFragment(); // 建立文件片段
             displayResults.forEach((item, idx) => {
                 const card = document.createElement('div');
                 card.className = 'result-card';
-                card.style.animationDelay = (idx * 0.06) + 's';
+                card.style.animationDelay = (Math.min(idx, 10) * 0.06) + 's';
+
+                const safeZ = escapeHtml(item.z) || '？';
+                const safeA = escapeHtml(item.a);
+                const safeY = escapeHtml(item.y) || '—';
+                const safeP = escapeHtml(item.p) || '—';
 
                 let tags = '';
-                if (item.a) tags += `<span class="tag xiesheng-tag" role="button" tabindex="0" onclick="searchByDomain('${item.a}')" onkeypress="if(event.key==='Enter'||event.key===' ')searchByDomain('${item.a}')" title="點擊查找同諧聲域字" aria-label="諧聲域 ${item.a}，點擊查詢同域字">諧聲域: ${item.a}</span>`;
+                // 注意這裡改用了 escapeJS(item.a)
+                if (item.a) tags += `<span class="tag xiesheng-tag" role="button" tabindex="0" onclick="searchByDomain('${escapeJS(item.a)}')" onkeypress="if(event.key==='Enter'||event.key===' ')searchByDomain('${escapeJS(item.a)}')" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</span>`;
                 if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
                 if (item.q === 1) tags += `<span class="tag">見戰國韻</span>`;
 
                 let meaningsHtml = '<p style="color:var(--ink-faint);font-style:italic;font-size:14px;">暫無釋義</p>';
                 let meaningNote = '';
-                if (item.d && item.d[1] && item.d[1].length > 0) {
-                    meaningNote = item.d[0] ? `<span class="section-note">（${item.d[0]}）</span>` : '';
-                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${m}</span></li>`).join('')}</ol>`;
+                if (item.d?.[1]?.length > 0) {
+                    meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
+                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${escapeHtml(m)}</span></li>`).join('')}</ol>`;
                 }
+
+                const safeN = item.n ? escapeHtml(item.n) : '';
 
                 card.innerHTML = `
                     <div class="char-banner">
                         <div class="char-glyph-wrap">
-                            <div class="char-glyph">${item.z || '？'}</div>
-                            ${item.z ? `<a class="zi-link" href="https://zi.tools/zi/${item.z}" target="_blank" rel="noopener" title="在字統網查閱字源">字統↗</a>` : ''}
+                            <div class="char-glyph">${safeZ}</div>
+                            ${item.z ? `<a class="zi-link" href="https://zi.tools/zi/${safeZ}" target="_blank" rel="noopener" title="在字統網查閱字源">字統↗</a>` : ''}
                         </div>
                         <div class="char-phonetics">
-                            <div class="phonetic-row"><span class="phonetic-label">擬音</span><span class="phonetic-value">${item.y || '—'}</span></div>
-                            <div class="phonetic-row"><span class="phonetic-label">拼音</span><span class="pinyin-value">${item.p || '—'}</span></div>
+                            <div class="phonetic-row">
+                                <span class="phonetic-label">擬音</span>
+                                <span class="phonetic-value">${safeY}</span>
+                                ${item.y ? `<button class="copy-btn" onclick="copyText('${escapeJS(item.y)}', this)" title="複製擬音" aria-label="複製擬音">📋</button>` : ''}
+                            </div>
+                            <div class="phonetic-row">
+                                <span class="phonetic-label">拼音</span>
+                                <span class="pinyin-value">${safeP}</span>
+                                ${item.p ? `<button class="copy-btn" onclick="copyText('${escapeJS(item.p)}', this)" title="複製拼音" aria-label="複製拼音">📋</button>` : ''}
+                            </div>
                             ${tags ? `<div class="char-tags">${tags}</div>` : ''}
                         </div>
                     </div>
@@ -378,22 +609,23 @@
                             </div>
                             ${meaningsHtml}
                         </div>
-                        ${item.n ? `
+                        ${safeN ? `
                         <div class="section-divider"></div>
                         <div class="section">
                             <div class="section-header">
                                 <span class="section-label">注釋</span>
                             </div>
-                            <div class="text-block annotation">${item.n}</div>
+                            <div class="text-block annotation">${safeN}</div>
                         </div>` : ''}
                     </div>`;
-                resultsDiv.appendChild(card);
+                fragment.appendChild(card);
             });
+            resultsDiv.appendChild(fragment);
 
             if (results.length > MAX_RESULTS) {
                 const bottomMsg = document.createElement('div');
                 bottomMsg.style.cssText = "text-align: center; margin-top: 10px; color: var(--ink-faint); font-size: 13px;";
-                bottomMsg.innerText = `— 後面還有 ${results.length - MAX_RESULTS} 條結果已省略 —`;
+                bottomMsg.innerText = `— 還有${results.length - MAX_RESULTS}條結果已省略 —`;
                 resultsDiv.appendChild(bottomMsg);
             }
         }
