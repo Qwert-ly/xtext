@@ -114,11 +114,6 @@
         .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); color: var(--ink); }
         .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-        @media (max-width: 480px) {
-            .char-banner { flex-direction: column; align-items: flex-start; gap: 12px; }
-            .char-glyph { font-size: 48px; }
-            .phonetic-value { font-size: 15px; }
-        }
         .copy-btn {
             background: transparent; border: none; cursor: pointer;
             font-size: 14px; padding: 2px 6px; margin-left: 4px;
@@ -141,11 +136,11 @@
             <label for="searchInput" class="sr-only">搜索上古漢語字典</label>
             <input type="text" id="searchInput" placeholder="正在加載字庫…"
                    onkeypress="handleEnter(event)" disabled
-                   aria-label="搜尋上古漢語字典"
+                   aria-label="搜索上古漢語字典"
                    aria-describedby="searchModeDesc"
                    autocomplete="off" spellcheck="false" maxlength="100"
                    title="按'/'快速回到搜索框">
-            <button id="searchBtn" onclick="searchDict()" disabled aria-label="執行查詢">查詢</button>
+            <button id="searchBtn" onclick="searchDict()" disabled aria-label="查詢">查詢</button>
         </div>
         <div class="search-options" role="group" aria-labelledby="searchModeDesc">
             <span id="searchModeDesc" class="sr-only">選擇搜索模式</span>
@@ -154,11 +149,11 @@
                 <span class="radio-btn">默認</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="exact" aria-label="精確模式：完整符合搜尋" onchange="searchDict()">
+                <input type="radio" name="searchMode" value="exact" aria-label="精確模式：完整符合搜索" onchange="searchDict()">
                 <span class="radio-btn">精確</span>
             </label>
             <label class="radio-label">
-                <input type="radio" name="searchMode" value="regex" aria-label="正則模式：使用正規表達式搜尋" onchange="searchDict()">
+                <input type="radio" name="searchMode" value="regex" aria-label="正則模式：使用正規表達式搜索" onchange="searchDict()">
                 <span class="radio-btn">正則</span>
             </label>
             <label class="radio-label">
@@ -249,7 +244,7 @@
         async function fetchGzJson(url, progressCallback) {
             const fetchFromNetwork = async () => {
                 const resp = await fetch(url);
-                if (!resp.ok) throw new Error(`請求 ${url} 失敗`);
+                if (!resp.ok) throw new Error(`請求${url}失敗`);
 
                 // 為了存入緩存，需 clone response
                 const respForCache = ('caches' in window) ? resp.clone() : null;
@@ -295,7 +290,7 @@
                                 showUpdateNotification();
                             }
                         }
-                    } catch (_e) { console.warn(`${url} 背景更新檢查失敗:`, _e); }
+                    } catch (_e) { console.warn(`${url}背景更新檢查失敗:`, _e); }
                 })();
                 const data = await streamAndParseGz(cachedResp.clone(), progressCallback);
                 return { data, fromCache: true };
@@ -320,18 +315,17 @@
             const btn    = document.getElementById('searchBtn');
             const status = document.getElementById('extraStatus');
 
-            // 1. 拆分 Try-Catch，基礎資料獨立載入保證核心功能可用
+            // 基礎資料獨立載入保證核心功能可用
             try {
                 const { data: baseData } = await fetchGzJson('base.json.gz', (loaded, total) => {
                     const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
                     input.placeholder = `加載基礎字庫... ${pct}`;
                 });
                 dictData = baseData;
-                input.placeholder = `已加載${dictData.length}條目 — 請輸入關鍵字`;
+                input.placeholder = `已加載${dictData.length}條目—請輸入關鍵字`;
                 input.disabled = false;
                 btn.disabled = false;
 
-                // 讀取 URL 參數，支援連結分享 (在 base 載入後立即執行一次確保不卡頓)
                 loadFromUrl();
             } catch (error) {
                 console.error('基礎字典加載錯誤:', error);
@@ -502,10 +496,10 @@
                 }
                 if (tokens.length === 0) tokens = [query];
                 const parsedTokens = tokens.map(t => ({ val: t, isUpper: /^[A-Z0-9]+$/.test(t) }));
-                
+
                 results = [];
                 const seen = new Set();
-                
+
                 parsedTokens.forEach(token => {
                     dictData.forEach(item => {
                         if (!seen.has(item)) {
@@ -513,7 +507,7 @@
                                    (item.y && item.y.includes(token.val)) ||
                                    (item.p && item.p.includes(token.val)) ||
                                    (token.isUpper ? (item.a && item.a.includes(token.val)) : item.a === token.val);
-                            
+
                             if (isMatch) {
                                 seen.add(item);
                                 results.push(item);
@@ -551,7 +545,7 @@
 
             if (results.length === 0) {
                 resultsDiv.setAttribute('aria-label', '查詢結果：無結果');
-                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${escapeHtml(query)}」的相關字條</div>`;
+                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${escapeHtml(query)}」的相關條目</div>`;
                 return;
             }
 
@@ -567,7 +561,7 @@
                 resultsDiv.appendChild(warningMsg);
             }
 
-            const fragment = document.createDocumentFragment(); // 建立文件片段
+            const fragment = document.createDocumentFragment();
             displayResults.forEach((item, idx) => {
                 const card = document.createElement('div');
                 card.className = 'result-card';
@@ -579,7 +573,6 @@
                 const safeP = escapeHtml(item.p) || '—';
 
                 let tags = '';
-                // 注意這裡改用了 escapeJS(item.a)
                 if (item.a) tags += `<span class="tag xiesheng-tag" role="button" tabindex="0" onclick="searchByDomain('${escapeJS(item.a)}')" onkeypress="if(event.key==='Enter'||event.key===' ')searchByDomain('${escapeJS(item.a)}')" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</span>`;
                 if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
                 if (item.q === 1) tags += `<span class="tag">見戰國韻</span>`;
@@ -636,7 +629,7 @@
             if (results.length > MAX_RESULTS) {
                 const bottomMsg = document.createElement('div');
                 bottomMsg.style.cssText = "text-align: center; margin-top: 10px; color: var(--ink-faint); font-size: 13px;";
-                bottomMsg.innerText = `— 還有${results.length - MAX_RESULTS}條結果已省略 —`;
+                bottomMsg.innerText = `—— 還有${results.length - MAX_RESULTS}條結果已省略 ——`;
                 resultsDiv.appendChild(bottomMsg);
             }
         }
