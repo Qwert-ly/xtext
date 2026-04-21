@@ -502,12 +502,23 @@
                 }
                 if (tokens.length === 0) tokens = [query];
                 const parsedTokens = tokens.map(t => ({ val: t, isUpper: /^[A-Z0-9]+$/.test(t) }));
-                results = dictData.filter(item => {
-                    return parsedTokens.some(token => {
-                        return item.z === token.val ||
-                               (item.y && item.y.includes(token.val)) ||
-                               (item.p && item.p.includes(token.val)) ||
-                               (token.isUpper ? (item.a && item.a.includes(token.val)) : item.a === token.val);
+                
+                results = [];
+                const seen = new Set();
+                
+                parsedTokens.forEach(token => {
+                    dictData.forEach(item => {
+                        if (!seen.has(item)) {
+                            const isMatch = item.z === token.val ||
+                                   (item.y && item.y.includes(token.val)) ||
+                                   (item.p && item.p.includes(token.val)) ||
+                                   (token.isUpper ? (item.a && item.a.includes(token.val)) : item.a === token.val);
+                            
+                            if (isMatch) {
+                                seen.add(item);
+                                results.push(item);
+                            }
+                        }
                     });
                 });
             } else if (mode === 'meaning') {
