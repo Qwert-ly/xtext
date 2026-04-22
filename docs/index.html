@@ -115,10 +115,22 @@
         .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--ink-faint); text-transform: uppercase; }
         .section-note { font-size: 12px; color: var(--ink-faint); margin-left: 4px; }
         .section-divider { height: 1px; background: var(--border-light); margin: 16px 0; }
-        .meanings-list { list-style: none; counter-reset: sense; }
-        .meanings-list li { counter-increment: sense; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
-        .meanings-list li:last-child { margin-bottom: 0; }
-        .meanings-list li::before { content: counter(sense); min-width: 20px; height: 20px; background: var(--vermilion); color: #fff; border-radius: 50%; font-size: 11px; font-family: "Noto Sans Mono", monospace; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+        .meanings-list { list-style: none; }
+        .meanings-list li { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
+        .sense-num {
+            min-width: 20px;
+            height: 20px;
+            background: var(--vermilion);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 11px;
+            font-family: "Noto Sans Mono", monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
         .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 10px 14px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; word-break: break-all; }
         .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); color: var(--ink); }
         .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
@@ -691,7 +703,10 @@
                 let meaningNote = '';
                 if (item.d?.[1]?.length > 0) {
                     meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
-                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${parseLinks(escapeHtml(m))}</span></li>`).join('')}</ol>`;
+                    // 修改後：傳入 index (i)，並手動插入 <span class="sense-num">
+                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map((m, i) =>
+                        `<li><span class="sense-num">${i + 1}</span><span>${parseLinks(escapeHtml(m))}</span></li>`
+                    ).join('')}</ol>`;
                 }
 
                 const safeN = item.n ? parseLinks(escapeHtml(item.n)) : '';
