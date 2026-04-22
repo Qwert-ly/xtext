@@ -12,6 +12,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📜</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;700&family=Noto+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <style>
         :root {
             --ink: #1c1a17; --ink-soft: #4a4540; --ink-faint: #8a837a;
@@ -37,6 +38,14 @@
             }
             input[type="text"] { color: var(--ink); }
             button:disabled { background: var(--ink-soft); }
+            .annotation-link {
+                color: #8cb4ff;
+                border-bottom-color: rgba(140, 180, 255, 0.4);
+            }
+            .annotation-link:hover {
+                color: var(--gold);
+                border-bottom-color: var(--gold);
+            }
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -96,7 +105,7 @@
         .phonetic-value { font-family: "Noto Sans Mono", monospace; font-size: 18px; color: #f0c27f; letter-spacing: 0.05em; }
         .pinyin-value { font-family: "Noto Sans Mono", monospace; font-size: 14px; color: rgba(255,255,255,0.75); letter-spacing: 0.05em; }
         .char-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-        .tag { display: inline-block; padding: 2px 10px; border-radius: 2px; font-size: 11px; letter-spacing: 0.06em; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.25); }
+        .tag { display: inline-block; padding: 2px 10px; border-radius: 2px; font-size: 11px; letter-spacing: 0.06em; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.25); white-space: nowrap; }
         .xiesheng-tag { background: rgba(240, 194, 127, 0.2); color: #f0c27f; border-color: rgba(240, 194, 127, 0.4); cursor: pointer; transition: all 0.2s; }
         .xiesheng-tag:hover { background: rgba(240, 194, 127, 0.4); transform: translateY(-1px); }
         .card-body { padding: 18px 24px; }
@@ -120,6 +129,38 @@
             border-radius: 4px; transition: background 0.2s; color: inherit;
         }
         .copy-btn:hover { background: rgba(255,255,255,0.1); }
+        .export-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: rgba(255,255,255,0.85);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-left: auto; /* 将按钮推向右侧 */
+            transition: all 0.2s;
+            letter-spacing: 0.05em;
+        }
+        .export-btn:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            border-color: #fff;
+        }
+        .exporting .export-btn { display: none; }
+        .exporting .char-phonetics { flex: 1 0 auto; min-width: max-content; }
+        .exporting .char-tags { flex-wrap: nowrap !important; }
+
+        .annotation-link {
+            color: #2b5e9e;
+            text-decoration: none;
+            border-bottom: 1px dotted rgba(43, 94, 158, 0.4);
+            transition: color 0.2s, border-color 0.2s;
+            word-break: break-all;
+        }
+        .annotation-link:hover {
+            color: var(--vermilion);
+            border-bottom-color: var(--vermilion);
+        }
     </style>
 </head>
 <body>
@@ -131,7 +172,7 @@
         </h1>
     </header>
 
-    <search class="search-container">
+    <section class="search-container" role="search">
         <div class="search-box">
             <label for="searchInput" class="sr-only">搜索上古漢語字典</label>
             <input type="text" id="searchInput" placeholder="正在加載字庫…"
@@ -161,7 +202,7 @@
                 <span class="radio-btn">釋義反查</span>
             </label>
         </div>
-    </search>
+    </section>
 
     <div id="updateBar" role="alert" aria-live="polite">
         <span>🔄 字庫有新版本已下載至本地，重新載入即可使用</span>
@@ -246,7 +287,7 @@
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`請求${url}失敗`);
 
-                // 為了存入緩存，需 clone response
+                // 爲了存入緩存，需 clone response
                 const respForCache = ('caches' in window) ? resp.clone() : null;
                 const data = await streamAndParseGz(resp, progressCallback);
 
@@ -307,6 +348,62 @@
                 setTimeout(() => btnElement.innerText = originalText, 1500);
             } catch (err) {
                 console.error('複製失敗:', err);
+            }
+        }
+
+        // 清理不合法档名字元的辅助函数
+        function sanitizeFilename(name) {
+            if (!name) return '';
+            return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim();
+        }
+
+        async function exportCard(card) {
+            const btn = card.querySelector('.export-btn');
+            const originalText = btn.innerText;
+
+            try {
+                btn.innerText = '⏳ 處理中...';
+                btn.disabled = true;
+
+                // 加上 exporting class，在截图时隐藏按钮本身
+                card.classList.add('exporting');
+
+                // 取得当下的背景颜色（支援暗色/亮色模式）
+                const bgColor = window.getComputedStyle(card).backgroundColor;
+
+                // 使用 html-to-image 截图
+                const dataUrl = await htmlToImage.toPng(card, {
+                    pixelRatio: 2,
+                    backgroundColor: bgColor,
+                    style: { margin: '0' }
+                });
+
+                // 恢复 UI 状态
+                card.classList.remove('exporting');
+
+                const zi = sanitizeFilename(card.dataset.char || 'result-card');
+                const phonetic = sanitizeFilename(card.dataset.phonetic || '');
+                const filename = phonetic ? `nocm-${zi}-${phonetic}.png` : `nocm-${zi}.png`;
+
+                // 触发下载
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                btn.innerText = '✔️ 已儲存';
+            } catch (err) {
+                console.error('汇出图片失败:', err);
+                btn.innerText = '❌ 失敗';
+                card.classList.remove('exporting');
+            } finally {
+                // 1.5 秒后恢复按钮状态
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }, 1500);
             }
         }
 
@@ -413,10 +510,9 @@
         const REGEX_MAX_LEN = 100;
         const REDOS_PATTERN = /(\(.*\*.*\*|\(.*\+.*\+|\(\?=.*\*|\(\?!.*\*|(\.\*){3,}|\(\w+\+\)\+|\(\w+\*\)\+)/;
 
-        // 修正：補上 flags 參數
         function safeRegex(str, flags = "") {
-            if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（最多 ${REGEX_MAX_LEN} 字元，目前 ${str.length} 字元）` };
-            if (REDOS_PATTERN.test(str)) return { ok: false, msg: '正則表達式含有可能造成瀏覽器卡頓的危險模式，已拒絕執行' };
+            if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（${str.length}/${REGEX_MAX_LEN}token）` };
+            if (REDOS_PATTERN.test(str)) return { ok: false, msg: '正則表達式含有可能造成卡頓的模式，已拒絕執行' };
             try {
                 const r = new RegExp(str, flags);
                 return { ok: true, regex: r };
@@ -425,7 +521,20 @@
             }
         }
 
-        // updateUrl 預設為 true，只有在內部調用（如從網址載入或載入擴充資料重新渲染）時才設為 false
+        function parseLinks(text) {
+            if (!text) return text;
+
+            const urlRegex = /((https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s（）()，。；：「」『』、]*)?)/g;
+
+            return text.replace(urlRegex, function(url) {
+                let cleanUrl = url.replace(/[.,?!)\]]+$/, '');
+                // 如果沒有 http/https 開頭，自動補上
+                let href = cleanUrl.startsWith('http') ? cleanUrl : 'https://' + cleanUrl;
+                return `<a href="${href}" target="_blank" rel="noopener" class="annotation-link">${cleanUrl}</a>`;
+            });
+        }
+
+        // updateUrl 預設 true，只有在內部調用（如從網址載入或載入擴充資料重新渲染）時才設 false
         function searchDict(updateUrl = true) {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
@@ -557,7 +666,7 @@
                 displayResults = results.slice(0, MAX_RESULTS);
                 const warningMsg = document.createElement('div');
                 warningMsg.style.cssText = "text-align: center; margin-bottom: 24px; padding: 12px; background: var(--gold-light); color: var(--gold); border: 1px solid rgba(139, 105, 20, 0.2); border-radius: 4px; font-size: 13.5px; letter-spacing: 0.05em;";
-                warningMsg.innerHTML = `找到<b>${results.length}</b>條結果。為免卡頓，僅顯示前<b>${MAX_RESULTS}</b>條`;
+                warningMsg.innerHTML = `找到<b>${results.length}</b>條結果。爲免卡頓，僅顯示前<b>${MAX_RESULTS}</b>條`;
                 resultsDiv.appendChild(warningMsg);
             }
 
@@ -566,7 +675,8 @@
                 const card = document.createElement('div');
                 card.className = 'result-card';
                 card.style.animationDelay = (Math.min(idx, 10) * 0.06) + 's';
-
+                card.dataset.char = item.z || '';
+                card.dataset.phonetic = item.y || '';
                 const safeZ = escapeHtml(item.z) || '？';
                 const safeA = escapeHtml(item.a);
                 const safeY = escapeHtml(item.y) || '—';
@@ -581,10 +691,10 @@
                 let meaningNote = '';
                 if (item.d?.[1]?.length > 0) {
                     meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
-                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${escapeHtml(m)}</span></li>`).join('')}</ol>`;
+                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map(m => `<li><span>${parseLinks(escapeHtml(m))}</span></li>`).join('')}</ol>`;
                 }
 
-                const safeN = item.n ? escapeHtml(item.n) : '';
+                const safeN = item.n ? parseLinks(escapeHtml(item.n)) : '';
 
                 card.innerHTML = `
                     <div class="char-banner">
@@ -605,6 +715,7 @@
                             </div>
                             ${tags ? `<div class="char-tags">${tags}</div>` : ''}
                         </div>
+                        <button class="export-btn" onclick="exportCard(this.closest('.result-card'))" title="導出爲圖片">📷 導出</button>
                     </div>
                     <div class="card-body">
                         <div class="section">
