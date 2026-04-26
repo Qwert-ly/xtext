@@ -2,19 +2,30 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f7f3ee" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1c1a17" media="(prefers-color-scheme: dark)">
     <meta property="og:title" content="上古汉语字典查询">
-    <meta property="og:description" content="新最小上古汉语（NOCM）查询工具，支援多模式检索与上古音拟音查询">
     <meta property="og:type" content="website">
+    <meta name="description" content="新最小上古漢語（NOCM）查詢工具，支持漢字、拼音、上古擬音、諧聲域多模式檢索">
+    <meta property="og:description" content="新最小上古漢語（NOCM）查詢工具，支持多模式檢索與上古音擬音查詢">
     <meta property="og:url" content="https://qwert-ly.github.io/xtext/">
     <link rel="canonical" href="https://qwert-ly.github.io/xtext/">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="application-name" content="NOCM 查詢">
+    <meta name="apple-mobile-web-app-title" content="NOCM 查詢">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>上古漢語字典查詢</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📜</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;700&family=Noto+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <style>
         :root {
+            color-scheme: light dark;
             --ink: #1c1a17; --ink-soft: #4a4540; --ink-faint: #8a837a;
             --paper: #f7f3ee; --paper-card: #fdfaf6; --paper-inset: #f0ebe3;
             --vermilion: #c0392b; --vermilion-light: #f5e6e4;
@@ -23,7 +34,7 @@
             --border: #d6cfc5; --border-light: #e8e2d8;
         }
 
-        /* 暗色模式支援 */
+        /* 暗色模式 */
         @media (prefers-color-scheme: dark) {
             :root {
                 --ink: #e8e2d8; --ink-soft: #a8a095; --ink-faint: #7a736a;
@@ -53,27 +64,35 @@
             font-family: "Noto Serif TC", "PingFang TC", "STSong", serif; background-color: var(--paper);
             color: var(--ink); max-width: 820px; margin: 0 auto; padding: 32px 24px; line-height: 1.8;
             background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%23f7f3ee'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%23e8e2d8' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%23e8e2d8' opacity='0.5'/%3E%3C/svg%3E");
+            min-height: 100vh;
         }
         .page-header { text-align: center; margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
         .page-header::after { content: ''; display: block; width: 60px; height: 2px; background: var(--vermilion); margin: 12px auto 0; }
         .page-header h1 { font-size: 26px; font-weight: 500; letter-spacing: 0.15em; color: var(--indigo); }
         .page-header h1 a:hover { color: var(--vermilion); }
-        .search-container { position: sticky; top: 0; background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 12px; }
+        .search-container { position: sticky; top: env(safe-area-inset-top, 0); background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 12px; }
+        @supports (backdrop-filter: blur(8px)) {
+            .search-container { background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(8px); }
+        }
         .search-box { display: flex; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--paper-card); box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: border-color 0.2s, box-shadow 0.2s; }
         .search-box:focus-within { border-color: var(--indigo); box-shadow: 0 2px 16px rgba(44,62,107,0.12); }
         .search-options { display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
         .radio-label { cursor: pointer; display: inline-flex; }
-        .radio-label input { display: none; }
+        .radio-label input {
+          position: absolute;
+          opacity: 0;
+          width: 1px;
+          height: 1px;
+        }
         .radio-btn { padding: 6px 18px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--border); border-radius: 20px; color: var(--ink-soft); transition: all 0.2s ease; background: var(--paper-card); letter-spacing: 0.05em; }
         .radio-label:hover .radio-btn { border-color: var(--indigo-light); color: var(--indigo); }
         .radio-label input:checked + .radio-btn { background: var(--indigo); color: #fff; border-color: var(--indigo); box-shadow: 0 2px 8px rgba(44,62,107,0.2); }
-
-        /* 無障礙：增加鍵盤聚焦樣式 */
         .radio-label input:focus-visible + .radio-btn { outline: 2px solid var(--indigo); outline-offset: 2px; }
 
-        input[type="text"] { flex: 1; padding: 13px 16px; font-size: 15px; font-family: inherit; border: none; background: transparent; outline: none; }
+        input[type="text"] { flex: 1; padding: 13px 16px; font-size: 15px; font-family: inherit; border: none; background: transparent; outline: none; min-width: 0; }
         input[type="text"]::placeholder { color: var(--ink-faint); }
-        button { padding: 13px 24px; font-size: 14px; font-family: inherit; letter-spacing: 0.1em; cursor: pointer; background: var(--indigo); color: #fff; border: none; transition: background 0.2s; }
+        button { padding: 12px 20px; font-size: 14px; font-family: inherit; letter-spacing: 0.1em; cursor: pointer; background: var(--indigo); color: #fff; border: none; transition: background 0.2s, transform 0.1s; white-space: nowrap; }
+        button:active { transform: scale(0.97); }
         button:hover { background: #1e2b4e; }
         button:disabled { cursor: not-allowed; opacity: 0.7; }
 
@@ -92,18 +111,22 @@
         #updateBar .btn-dismiss:hover { background: rgba(44,62,107,0.08); }
 
         #extraStatus { text-align: center; font-size: 13px; color: var(--gold); margin-bottom: 24px; display: none; }
-        .result-card { background: var(--paper-card); margin-bottom: 28px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 3px 20px rgba(0,0,0,0.05); overflow: hidden; animation: fadeUp 0.3s ease both; }
+        .result-card { background: var(--paper-card); margin-bottom: 28px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 3px 20px rgba(0,0,0,0.05); overflow: hidden; animation: fadeUp 0.35s ease both; transition: box-shadow 0.25s ease, transform 0.2s ease; content-visibility: auto; contain-intrinsic-size: 260px; }
+        .result-card:hover {
+            box-shadow: 0 6px 28px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .char-banner { background: var(--indigo); color: #fff; padding: 20px 28px; display: flex; align-items: center; gap: 24px; }
+        .char-banner { background: var(--indigo); color: #fff; padding: 20px 28px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
         .char-glyph-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
         .char-glyph { font-size: 64px; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.3); user-select: text; }
         .zi-link { font-size: 11px; color: rgba(255,255,255,0.5); text-decoration: none; letter-spacing: 0.06em; border-bottom: 1px dashed rgba(255,255,255,0.3); transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
         .zi-link:hover { color: #f0c27f; border-bottom-color: #f0c27f; }
-        .char-phonetics { flex: 1; }
-        .phonetic-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .char-phonetics { flex: 1 1 240px; min-width: 0; }
+        .phonetic-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
         .phonetic-label { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; width: 28px; flex-shrink: 0; }
-        .phonetic-value { font-family: "Noto Sans Mono", monospace; font-size: 18px; color: #f0c27f; letter-spacing: 0.05em; }
-        .pinyin-value { font-family: "Noto Sans Mono", monospace; font-size: 14px; color: rgba(255,255,255,0.75); letter-spacing: 0.05em; }
+        .phonetic-value { font-family: "Noto Sans Mono", monospace; font-size: 18px; color: #f0c27f; letter-spacing: 0.05em; word-break: break-all; }
+        .pinyin-value { font-family: "Noto Sans Mono", monospace; font-size: 14px; color: rgba(255,255,255,0.75); letter-spacing: 0.05em; word-break: break-all; }
         .char-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
         .tag { display: inline-block; padding: 2px 10px; border-radius: 2px; font-size: 11px; letter-spacing: 0.06em; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.25); white-space: nowrap; }
         .xiesheng-tag { background: rgba(240, 194, 127, 0.2); color: #f0c27f; border-color: rgba(240, 194, 127, 0.4); cursor: pointer; transition: all 0.2s; }
@@ -111,7 +134,7 @@
         .card-body { padding: 18px 24px; }
         .section { margin-bottom: 16px; }
         .section:last-child { margin-bottom: 0; }
-        .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
         .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--ink-faint); text-transform: uppercase; }
         .section-note { font-size: 12px; color: var(--ink-faint); margin-left: 4px; }
         .section-divider { height: 1px; background: var(--border-light); margin: 16px 0; }
@@ -131,16 +154,38 @@
             flex-shrink: 0;
             margin-top: 4px;
         }
-        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 10px 14px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; word-break: break-all; }
+        .text-block { background: var(--paper-inset); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: 0 3px 3px 0; padding: 10px 14px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); white-space: pre-wrap; word-break: break-word; }
         .text-block.annotation { border-left-color: var(--gold); background: var(--gold-light); color: var(--ink); }
         .no-result { text-align: center; padding: 48px 0; color: var(--ink-faint); font-size: 15px; letter-spacing: 0.05em; }
+        .pagination-bar {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            margin: 0 0 20px; padding: 12px 14px;
+            background: var(--paper-card); border: 1px solid var(--border); border-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04); color: var(--ink-soft);
+            font-size: 13px; letter-spacing: 0.04em; flex-wrap: wrap;
+        }
+        .pagination-bar.bottom { margin: 8px 0 0; }
+        .pagination-summary { color: var(--ink-soft); }
+        .pagination-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .pagination-controls button,
+        .pagination-size select {
+            font-family: inherit; font-size: 12px; letter-spacing: 0.04em; border-radius: 4px;
+            border: 1px solid var(--border); background: var(--paper-card); color: var(--ink-soft);
+        }
+        .pagination-controls button { padding: 5px 9px; cursor: pointer; transition: color 0.2s, border-color 0.2s, background 0.2s; }
+        .pagination-controls button:hover:not(:disabled) { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-light); }
+        .pagination-controls button:disabled { background: var(--paper-inset); color: var(--ink-faint); border-color: var(--border-light); cursor: not-allowed; opacity: 0.75; }
+        .pagination-controls button[aria-current="page"] { background: var(--indigo); color: #fff; border-color: var(--indigo); cursor: default; }
+        .pagination-ellipsis { padding: 0 2px; color: var(--ink-faint); }
+        .pagination-size { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .pagination-size select { padding: 4px 24px 4px 8px; cursor: pointer; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         .copy-btn {
             background: transparent; border: none; cursor: pointer;
-            font-size: 14px; padding: 2px 6px; margin-left: 4px;
-            border-radius: 4px; transition: background 0.2s; color: inherit;
+            font-size: 14px; padding: 4px 6px; border-radius: 4px; transition: background 0.2s; color: inherit;
+            display: inline-flex; align-items: center; justify-content: center;
         }
-        .copy-btn:hover { background: rgba(255,255,255,0.1); }
+        .copy-btn:hover { background: rgba(255,255,255,0.15); }
         .export-btn {
             background: transparent;
             border: 1px solid rgba(255,255,255,0.3);
@@ -149,9 +194,10 @@
             font-size: 12px;
             padding: 4px 10px;
             border-radius: 4px;
-            margin-left: auto; /* 将按钮推向右侧 */
+            margin-left: auto;
             transition: all 0.2s;
             letter-spacing: 0.05em;
+            white-space: nowrap;
         }
         .export-btn:hover {
             background: rgba(255,255,255,0.15);
@@ -173,12 +219,58 @@
             color: var(--vermilion);
             border-bottom-color: var(--vermilion);
         }
+
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+            .result-card:hover { transform: none; }
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 16px 12px; }
+            .page-header { margin-bottom: 20px; padding-bottom: 16px; }
+            .page-header h1 { font-size: 22px; letter-spacing: 0.1em; }
+            .search-container { padding: 8px 0 12px; }
+            .search-box { border-radius: 3px; }
+            input[type="text"] { padding: 10px 12px; font-size: 14px; }
+            button { padding: 10px 16px; font-size: 13px; }
+            .search-options { gap: 6px; margin-top: 10px; }
+            .radio-btn { padding: 4px 12px; font-size: 12px; border-radius: 16px; }
+
+            .char-banner { padding: 14px 18px; gap: 12px; }
+            .char-glyph { font-size: 48px; }
+            .phonetic-value { font-size: 16px; }
+            .pinyin-value { font-size: 13px; }
+            .export-btn { margin-left: 0; margin-top: 8px; width: 100%; text-align: center; }
+
+            .card-body { padding: 12px 16px; }
+            .meanings-list li { font-size: 13.5px; gap: 8px; }
+            .sense-num { min-width: 18px; height: 18px; font-size: 10px; margin-top: 3px; }
+            .text-block { padding: 8px 10px; font-size: 12.5px; }
+
+            .no-result { padding: 36px 0; font-size: 14px; }
+            .pagination-bar { align-items: stretch; flex-direction: column; gap: 10px; padding: 10px 12px; }
+            .pagination-controls { justify-content: center; }
+            .pagination-controls button { padding: 5px 8px; }
+            .pagination-size { justify-content: center; }
+            #updateBar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 8px 12px; }
+        }
+
+        @media (max-width: 380px) {
+            .page-header h1 { font-size: 20px; }
+            .char-glyph { font-size: 40px; }
+            .phonetic-value { font-size: 14px; }
+            .pinyin-value { font-size: 12px; }
+            .search-options { gap: 4px; }
+            .radio-btn { padding: 3px 10px; font-size: 11px; }
+        }
     </style>
+    <link rel="preload" href="base.json.gz" as="fetch" crossorigin="anonymous">
 </head>
 <body>
     <header class="page-header">
         <h1>
-            <a href="https://zhuanlan.zhihu.com/p/12987993957" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;">
+            <a href="https://zhuanlan.zhihu.com/p/12987993957" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none; transition: color 0.2s;">
                 新最小上古漢語（NOCM）查詢
             </a>
         </h1>
@@ -188,12 +280,12 @@
         <div class="search-box">
             <label for="searchInput" class="sr-only">搜索上古漢語字典</label>
             <input type="text" id="searchInput" placeholder="正在加載字庫…"
-                   onkeypress="handleEnter(event)" disabled
+                   onkeydown="handleEnter(event)" disabled
                    aria-label="搜索上古漢語字典"
                    aria-describedby="searchModeDesc"
                    autocomplete="off" spellcheck="false" maxlength="100"
                    title="按'/'快速回到搜索框">
-            <button id="searchBtn" onclick="searchDict()" disabled aria-label="查詢">查詢</button>
+            <button id="searchBtn" type="button" onclick="searchDict()" disabled aria-label="查詢">查詢</button>
         </div>
         <div class="search-options" role="group" aria-labelledby="searchModeDesc">
             <span id="searchModeDesc" class="sr-only">選擇搜索模式</span>
@@ -219,8 +311,8 @@
     <div id="updateBar" role="alert" aria-live="polite">
         <span>🔄 字庫有新版本已下載至本地，重新載入即可使用</span>
         <div class="update-actions">
-            <button class="btn-reload" onclick="location.reload()">重新載入</button>
-            <button class="btn-dismiss"
+            <button class="btn-reload" type="button" onclick="location.reload()">重新載入</button>
+            <button class="btn-dismiss" type="button"
                     onclick="document.getElementById('updateBar').style.display='none'"
                     aria-label="關閉提示">✕</button>
         </div>
@@ -234,7 +326,12 @@
     <script>
         let dictData = [];
         const meaningIndex = new Map();
-        const DICT_CACHE = 'nocm-dict-v1';
+        const zIndex = new Map();
+        const pinyinIndex = new Map();
+        const phoneticIndex = new Map();
+        const domainExactIndex = new Map();
+        const DICT_CACHE = 'nocm-dict-v2';
+        const supportsGzipStreams = 'DecompressionStream' in window && 'TextDecoderStream' in window;
         let _updatedFiles = false;
 
         // 全域快捷鍵：按下 / 快速 focus 搜尋框
@@ -245,7 +342,6 @@
             }
         });
 
-        // XSS防護
         function escapeHtml(unsafe) {
             if (typeof unsafe !== 'string') return unsafe;
             return unsafe
@@ -261,9 +357,52 @@
             return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
         }
 
+        let updateNotified = false;
         function showUpdateNotification() {
+            if (updateNotified) return;
+            updateNotified = true;
             const bar = document.getElementById('updateBar');
             if (bar) bar.style.display = 'flex';
+        }
+
+        function addToIndex(index, key, item) {
+            if (!key) return;
+            const normalized = String(key).trim();
+            if (!normalized) return;
+            if (!index.has(normalized)) index.set(normalized, []);
+            index.get(normalized).push(item);
+        }
+
+        function buildBaseIndexes() {
+            zIndex.clear();
+            pinyinIndex.clear();
+            phoneticIndex.clear();
+            domainExactIndex.clear();
+
+            dictData.forEach(item => {
+                addToIndex(zIndex, item.z, item);
+                addToIndex(pinyinIndex, item.p, item);
+                addToIndex(phoneticIndex, item.y, item);
+                addToIndex(domainExactIndex, item.a, item);
+            });
+        }
+
+        function appendUnique(target, seen, items) {
+            if (!items) return;
+            items.forEach(item => {
+                if (!seen.has(item)) {
+                    seen.add(item);
+                    target.push(item);
+                }
+            });
+        }
+
+        function regexMatches(regex, ...values) {
+            return values.some(value => {
+                if (!value) return false;
+                regex.lastIndex = 0;
+                return regex.test(value);
+            });
         }
 
         async function streamAndParseGz(response, progressCallback) {
@@ -285,21 +424,22 @@
                 .pipeThrough(new TextDecoderStream());
 
             const reader = decompressedStream.getReader();
-            let jsonText = '';
+            const chunks = [];
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                jsonText += value;
+                chunks.push(value);
             }
-            return JSON.parse(jsonText);
+            return JSON.parse(chunks.join(''));
         }
 
         async function fetchGzJson(url, progressCallback) {
+            if (!supportsGzipStreams) throw new Error('此瀏覽器不支持DecompressionStream，無法直接讀取.json.gz。需要Chrome 80+/Firefox 113+/Safari 16.4+');
+
             const fetchFromNetwork = async () => {
-                const resp = await fetch(url);
+                const resp = await fetch(url, { cache: 'no-cache' });
                 if (!resp.ok) throw new Error(`請求${url}失敗`);
 
-                // 爲了存入緩存，需 clone response
                 const respForCache = ('caches' in window) ? resp.clone() : null;
                 const data = await streamAndParseGz(resp, progressCallback);
 
@@ -363,7 +503,6 @@
             }
         }
 
-        // 清理不合法档名字元的辅助函数
         function sanitizeFilename(name) {
             if (!name) return '';
             return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim();
@@ -373,31 +512,32 @@
             const btn = card.querySelector('.export-btn');
             const originalText = btn.innerText;
 
+            if (!window.htmlToImage) {
+                await new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
+                    s.onload = resolve; s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+            }
             try {
                 btn.innerText = '⏳ 處理中...';
                 btn.disabled = true;
-
-                // 加上 exporting class，在截图时隐藏按钮本身
                 card.classList.add('exporting');
 
-                // 取得当下的背景颜色（支援暗色/亮色模式）
                 const bgColor = window.getComputedStyle(card).backgroundColor;
-
-                // 使用 html-to-image 截图
                 const dataUrl = await htmlToImage.toPng(card, {
                     pixelRatio: 2,
                     backgroundColor: bgColor,
                     style: { margin: '0' }
                 });
 
-                // 恢复 UI 状态
                 card.classList.remove('exporting');
 
                 const zi = sanitizeFilename(card.dataset.char || 'result-card');
                 const phonetic = sanitizeFilename(card.dataset.phonetic || '');
                 const filename = phonetic ? `nocm-${zi}-${phonetic}.png` : `nocm-${zi}.png`;
 
-                // 触发下载
                 const link = document.createElement('a');
                 link.download = filename;
                 link.href = dataUrl;
@@ -411,7 +551,6 @@
                 btn.innerText = '❌ 失敗';
                 card.classList.remove('exporting');
             } finally {
-                // 1.5 秒后恢复按钮状态
                 setTimeout(() => {
                     btn.innerText = originalText;
                     btn.disabled = false;
@@ -424,13 +563,13 @@
             const btn    = document.getElementById('searchBtn');
             const status = document.getElementById('extraStatus');
 
-            // 基礎資料獨立載入保證核心功能可用
             try {
                 const { data: baseData } = await fetchGzJson('base.json.gz', (loaded, total) => {
                     const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
                     input.placeholder = `加載基礎字庫... ${pct}`;
                 });
                 dictData = baseData;
+                buildBaseIndexes();
                 input.placeholder = `已加載${dictData.length}條目—請輸入關鍵字`;
                 input.disabled = false;
                 btn.disabled = false;
@@ -441,11 +580,23 @@
                 input.placeholder = '加載字典失敗，請檢查網絡';
                 btn.textContent = '重試';
                 btn.disabled = false;
-                btn.onclick = initDictionary;
-                return; // 基礎失敗直接終止
+                // 临时重试函数
+                const oldOnClick = btn.onclick;
+                btn.onclick = async () => {
+                    btn.disabled = true;
+                    btn.textContent = '加載中...';
+                    await initDictionary();
+                    if (dictData.length) {
+                        btn.onclick = oldOnClick;   // 恢复原查询函数
+                        btn.textContent = '查詢';
+                    } else {
+                        btn.textContent = '重試';
+                        btn.disabled = false;
+                    }
+                };
+                return;
             }
 
-            // 2. 載入擴展資料
             try {
                 status.style.display = 'block';
                 const { data: extraData } = await fetchGzJson('extra.json.gz', (loaded, total) => {
@@ -453,11 +604,10 @@
                     status.innerText = `獲取釋義與注釋... ${pct}`;
                 });
 
-                // 防錯機制：確保合併時資料對齊
                 if (dictData.length === extraData.length) {
                     extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
 
-                    // 建立釋義倒排索引
+                    meaningIndex.clear();
                     dictData.forEach((item, i) => {
                         const addTextToIndex = (text) => {
                             if (!text) return;
@@ -472,6 +622,10 @@
                     });
 
                     status.innerText = '擴展數據與索引加載完成！';
+                    // 确保查询按钮绑定正确函数
+                    const searchBtn = document.getElementById('searchBtn');
+                    searchBtn.onclick = searchDict;
+                    searchBtn.textContent = '查詢';
                 } else {
                     console.error('資料長度不匹配，跳過擴展資料合併');
                     status.innerText = '擴展數據異常，僅提供基礎查詢';
@@ -479,7 +633,6 @@
                 }
                 setTimeout(() => { status.style.display = 'none'; }, 2000);
 
-                // 若剛才有搜尋，重新渲染以展示釋義
                 if (input.value.trim()) searchDict(false);
             } catch (error) {
                 console.error('擴充字典加載錯誤:', error);
@@ -491,23 +644,29 @@
         // 啟動
         initDictionary();
 
-        // 處理 URL 參數同步
         function loadFromUrl() {
             const params = new URLSearchParams(window.location.search);
             const q = params.get('q');
             const mode = params.get('mode');
+            pageSize = normalizePageSize(params.get('size') || pageSize);
+            pendingUrlPage = Math.max(1, parseInt(params.get('page'), 10) || 1);
 
             if (mode) {
                 const radio = document.querySelector(`input[name="searchMode"][value="${mode}"]`);
                 if (radio) radio.checked = true;
             }
+            const input = document.getElementById('searchInput');
             if (q) {
-                document.getElementById('searchInput').value = q;
+                input.value = q;
                 searchDict(false);
+            } else {
+                input.value = '';
+                currentQuery = '';
+                currentResults = [];
+                document.getElementById('results').replaceChildren();
             }
         }
 
-        // 監聽瀏覽器上一頁/下一頁
         window.addEventListener('popstate', loadFromUrl);
 
         function handleEnter(e) { if (e.key === 'Enter') searchDict(); }
@@ -523,10 +682,11 @@
         const REDOS_PATTERN = /(\(.*\*.*\*|\(.*\+.*\+|\(\?=.*\*|\(\?!.*\*|(\.\*){3,}|\(\w+\+\)\+|\(\w+\*\)\+)/;
 
         function safeRegex(str, flags = "") {
-            if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（${str.length}/${REGEX_MAX_LEN}token）` };
+            if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（${str.length}/${REGEX_MAX_LEN}字元）` };
             if (REDOS_PATTERN.test(str)) return { ok: false, msg: '正則表達式含有可能造成卡頓的模式，已拒絕執行' };
             try {
-                const r = new RegExp(str, flags);
+                const safeFlags = Array.from(new Set(flags.replace(/g/g, '').split(''))).join('');
+                const r = new RegExp(str, safeFlags);
                 return { ok: true, regex: r };
             } catch(e) {
                 return { ok: false, msg: `正則語法錯誤：${e.message}` };
@@ -535,41 +695,272 @@
 
         function parseLinks(text) {
             if (!text) return text;
-
             const urlRegex = /((https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s（）()，。；：「」『』、]*)?)/g;
 
             return text.replace(urlRegex, function(url) {
                 let cleanUrl = url.replace(/[.,?!)\]]+$/, '');
-                // 如果沒有 http/https 開頭，自動補上
                 let href = cleanUrl.startsWith('http') ? cleanUrl : 'https://' + cleanUrl;
                 return `<a href="${href}" target="_blank" rel="noopener" class="annotation-link">${cleanUrl}</a>`;
             });
         }
 
-        // updateUrl 預設 true，只有在內部調用（如從網址載入或載入擴充資料重新渲染）時才設 false
+        const DEFAULT_PAGE_SIZE = 50;
+        const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
+        const PAGE_SIZE_STORAGE_KEY = 'nocm-page-size';
+        let currentResults = [];
+        let currentQuery = '';
+        let currentMode = 'default';
+        let currentPage = 1;
+        let pendingUrlPage = 1;
+        let pageSize = readStoredPageSize();
+
+        function normalizePageSize(value) {
+            const parsed = parseInt(value, 10);
+            return PAGE_SIZE_OPTIONS.includes(parsed) ? parsed : DEFAULT_PAGE_SIZE;
+        }
+
+        function readStoredPageSize() {
+            try {
+                return normalizePageSize(localStorage.getItem(PAGE_SIZE_STORAGE_KEY) || DEFAULT_PAGE_SIZE);
+            } catch (_e) {
+                return DEFAULT_PAGE_SIZE;
+            }
+        }
+
+        function persistPageSize(value) {
+            try { localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(value)); } catch (_e) {}
+        }
+
+        function updateSearchUrl() {
+            const url = new URL(window.location);
+            if (currentQuery) {
+                url.searchParams.set('q', currentQuery);
+                url.searchParams.set('mode', currentMode);
+                if (currentPage > 1) url.searchParams.set('page', String(currentPage));
+                else url.searchParams.delete('page');
+                if (pageSize !== DEFAULT_PAGE_SIZE) url.searchParams.set('size', String(pageSize));
+                else url.searchParams.delete('size');
+            } else {
+                url.searchParams.delete('q');
+                url.searchParams.delete('mode');
+                url.searchParams.delete('page');
+                url.searchParams.delete('size');
+            }
+            if (window.location.search !== url.search) window.history.pushState({}, '', url);
+        }
+
+        function pageWindow(page, totalPages) {
+            const pages = new Set([1, totalPages]);
+            for (let p = page - 2; p <= page + 2; p++) {
+                if (p >= 1 && p <= totalPages) pages.add(p);
+            }
+            return Array.from(pages).sort((a, b) => a - b);
+        }
+
+        function createPageButton(label, page, disabled = false, current = false) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = label;
+            btn.disabled = disabled;
+            if (current) btn.setAttribute('aria-current', 'page');
+            btn.setAttribute('aria-label', current ? `第 ${page} 頁，目前頁` : `前往第 ${page} 頁`);
+            btn.addEventListener('click', () => {
+                if (!disabled && !current) goToPage(page);
+            });
+            return btn;
+        }
+
+        function createPaginationBar(total, position = 'top') {
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            const start = (currentPage - 1) * pageSize + 1;
+            const end = Math.min(total, currentPage * pageSize);
+            const bar = document.createElement('nav');
+            bar.className = `pagination-bar ${position}`;
+            bar.setAttribute('aria-label', position === 'top' ? '查詢結果分頁' : '查詢結果底部分頁');
+
+            const summary = document.createElement('div');
+            summary.className = 'pagination-summary';
+            summary.innerHTML = `找到<b>${total}</b>條，顯示<b>${start}–${end}</b>條 / 第<b>${currentPage}</b>頁，共<b>${totalPages}</b>頁`;
+            bar.appendChild(summary);
+
+            const controls = document.createElement('div');
+            controls.className = 'pagination-controls';
+
+            const sizeLabel = document.createElement('label');
+            sizeLabel.className = 'pagination-size';
+            sizeLabel.textContent = '每頁';
+            const select = document.createElement('select');
+            select.setAttribute('aria-label', '每頁顯示條數');
+            PAGE_SIZE_OPTIONS.forEach(size => {
+                const option = document.createElement('option');
+                option.value = String(size);
+                option.textContent = `${size}條`;
+                option.selected = size === pageSize;
+                select.appendChild(option);
+            });
+            select.addEventListener('change', () => changePageSize(select.value));
+            sizeLabel.appendChild(select);
+            controls.appendChild(sizeLabel);
+
+            if (totalPages > 1) {
+                controls.appendChild(createPageButton('首頁', 1, currentPage === 1));
+                controls.appendChild(createPageButton('上一頁', currentPage - 1, currentPage === 1));
+
+                let last = 0;
+                pageWindow(currentPage, totalPages).forEach(page => {
+                    if (page - last > 1) {
+                        const ellipsis = document.createElement('span');
+                        ellipsis.className = 'pagination-ellipsis';
+                        ellipsis.textContent = '…';
+                        controls.appendChild(ellipsis);
+                    }
+                    controls.appendChild(createPageButton(String(page), page, false, page === currentPage));
+                    last = page;
+                });
+
+                controls.appendChild(createPageButton('下一頁', currentPage + 1, currentPage === totalPages));
+                controls.appendChild(createPageButton('末頁', totalPages, currentPage === totalPages));
+            }
+
+            bar.appendChild(controls);
+            return bar;
+        }
+
+        function renderResultCard(item, idx) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.style.animationDelay = (Math.min(idx, 10) * 0.06) + 's';
+            card.dataset.char = item.z || '';
+            card.dataset.phonetic = item.y || '';
+            const safeZ = escapeHtml(item.z) || '？';
+            const safeA = escapeHtml(item.a);
+            const safeY = escapeHtml(item.y) || '—';
+            const safeP = escapeHtml(item.p) || '—';
+
+            let tags = '';
+            if (item.a) tags += `<span class="tag xiesheng-tag" role="button" tabindex="0" onclick="searchByDomain('${escapeJS(item.a)}')" onkeypress="if(event.key==='Enter'||event.key===' ')searchByDomain('${escapeJS(item.a)}')" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</span>`;
+            if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
+            if (item.q === 1) tags += `<span class="tag">見戰國韻</span>`;
+
+            let meaningsHtml = '<p style="color:var(--ink-faint);font-style:italic;font-size:14px;">暫無釋義</p>';
+            let meaningNote = '';
+            if (item.d?.[1]?.length > 0) {
+                meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
+                meaningsHtml = `<ol class="meanings-list">${item.d[1].map((m, i) =>
+                    `<li><span class="sense-num">${i + 1}</span><span>${parseLinks(escapeHtml(m))}</span></li>`
+                ).join('')}</ol>`;
+            }
+
+            const safeN = item.n ? parseLinks(escapeHtml(item.n)) : '';
+
+            card.innerHTML = `
+                <div class="char-banner">
+                    <div class="char-glyph-wrap">
+                        <div class="char-glyph">${safeZ}</div>
+                        ${item.z ? `<a class="zi-link" href="https://zi.tools/zi/${safeZ}" target="_blank" rel="noopener" title="在字統網查閱字源">字統↗</a>` : ''}
+                    </div>
+                    <div class="char-phonetics">
+                        <div class="phonetic-row">
+                            <span class="phonetic-label">擬音</span>
+                            <span class="phonetic-value">${safeY}</span>
+                            ${item.y ? `<button class="copy-btn" type="button" onclick="copyText('${escapeJS(item.y)}', this)" title="複製擬音" aria-label="複製擬音">📋</button>` : ''}
+                        </div>
+                        <div class="phonetic-row">
+                            <span class="phonetic-label">拼音</span>
+                            <span class="pinyin-value">${safeP}</span>
+                            ${item.p ? `<button class="copy-btn" type="button" onclick="copyText('${escapeJS(item.p)}', this)" title="複製拼音" aria-label="複製拼音">📋</button>` : ''}
+                        </div>
+                        ${tags ? `<div class="char-tags">${tags}</div>` : ''}
+                    </div>
+                    <button class="export-btn" type="button" onclick="exportCard(this.closest('.result-card'))" title="導出爲圖片">📷 導出</button>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-header">
+                            <span class="section-label">釋義</span>${meaningNote}
+                        </div>
+                        ${meaningsHtml}
+                    </div>
+                    ${safeN ? `
+                    <div class="section-divider"></div>
+                    <div class="section">
+                        <div class="section-header">
+                            <span class="section-label">注釋</span>
+                        </div>
+                        <div class="text-block annotation">${safeN}</div>
+                    </div>` : ''}
+                </div>`;
+            return card;
+        }
+
+        function renderPaginatedResults(updateUrl = true, shouldScroll = false) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.replaceChildren();
+
+            if (!currentQuery) return;
+
+            if (currentResults.length === 0) {
+                resultsDiv.setAttribute('aria-label', '查詢結果：無結果');
+                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${escapeHtml(currentQuery)}」的相關條目<br><span style="font-size:0.9em">可嘗試輸入單個漢字、拼音、諧聲域或使用正則</span></div>`;
+                if (updateUrl) updateSearchUrl();
+                return;
+            }
+
+            const totalPages = Math.max(1, Math.ceil(currentResults.length / pageSize));
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+            const startIndex = (currentPage - 1) * pageSize;
+            const displayResults = currentResults.slice(startIndex, startIndex + pageSize);
+            resultsDiv.setAttribute('aria-label', `查詢結果：共 ${currentResults.length} 條，第 ${currentPage} 頁，共 ${totalPages} 頁`);
+
+            resultsDiv.appendChild(createPaginationBar(currentResults.length, 'top'));
+
+            const fragment = document.createDocumentFragment();
+            displayResults.forEach((item, idx) => fragment.appendChild(renderResultCard(item, idx)));
+            resultsDiv.appendChild(fragment);
+
+            if (currentResults.length > pageSize) {
+                resultsDiv.appendChild(createPaginationBar(currentResults.length, 'bottom'));
+            }
+
+            if (updateUrl) updateSearchUrl();
+            if (shouldScroll) {
+                document.querySelector('.search-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function goToPage(page) {
+            const totalPages = Math.max(1, Math.ceil(currentResults.length / pageSize));
+            const nextPage = Math.min(Math.max(1, parseInt(page, 10) || 1), totalPages);
+            if (nextPage === currentPage) return;
+            currentPage = nextPage;
+            renderPaginatedResults(true, true);
+        }
+
+        function changePageSize(value) {
+            pageSize = normalizePageSize(value);
+            persistPageSize(pageSize);
+            currentPage = 1;
+            renderPaginatedResults(true, true);
+        }
+
         function searchDict(updateUrl = true) {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
             const regexErrorDiv = document.getElementById('regexError');
             const mode = document.querySelector('input[name="searchMode"]:checked').value;
 
-            // URL 狀態同步
-            if (updateUrl) {
-                const url = new URL(window.location);
-                if (query) {
-                    url.searchParams.set('q', query);
-                    url.searchParams.set('mode', mode);
-                } else {
-                    url.searchParams.delete('q');
-                    url.searchParams.delete('mode');
-                }
-                if (window.location.search !== url.search) window.history.pushState({}, '', url);
-            }
+            currentQuery = query;
+            currentMode = mode;
+            currentResults = [];
+            currentPage = updateUrl ? 1 : pendingUrlPage;
 
             resultsDiv.replaceChildren();
             regexErrorDiv.style.display = 'none';
             regexErrorDiv.textContent = '';
-            if (!query) return;
+            if (!query) {
+                if (updateUrl) updateSearchUrl();
+                return;
+            }
 
             let isRegexMode = mode === 'regex' || (query.startsWith('/') && query.endsWith('/') && query.length > 2);
             let isExactMode = mode === 'exact' || (query.startsWith('"') && query.endsWith('"') && query.length > 2);
@@ -616,32 +1007,36 @@
                     }
                 }
                 if (tokens.length === 0) tokens = [query];
-                const parsedTokens = tokens.map(t => ({ val: t, isUpper: /^[A-Z0-9]+$/.test(t) }));
+                const parsedTokens = tokens.map(t => ({ val: t, isUpper: /^[A-Z0-9]+$/.test(t), isHan: /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(t) }));
 
                 results = [];
                 const seen = new Set();
 
                 parsedTokens.forEach(token => {
-                    dictData.forEach(item => {
-                        if (!seen.has(item)) {
-                            const isMatch = item.z === token.val ||
-                                   (item.y && item.y.includes(token.val)) ||
-                                   (item.p && item.p.includes(token.val)) ||
-                                   (token.isUpper ? (item.a && item.a.includes(token.val)) : item.a === token.val);
+                    appendUnique(results, seen, zIndex.get(token.val));
+                    appendUnique(results, seen, pinyinIndex.get(token.val));
+                    appendUnique(results, seen, phoneticIndex.get(token.val));
+                    appendUnique(results, seen, domainExactIndex.get(token.val));
 
-                            if (isMatch) {
+                    if (token.isUpper) {
+                        for (const [domain, items] of domainExactIndex) {
+                            if (domain.includes(token.val)) appendUnique(results, seen, items);
+                        }
+                    }
+
+                    // 對拼音與擬音保留原本的「包含」檢索能力；漢字 token 則不再做無效全表掃描。
+                    if (!token.isHan) {
+                        dictData.forEach(item => {
+                            if (!seen.has(item) && ((item.y && item.y.includes(token.val)) || (item.p && item.p.includes(token.val)))) {
                                 seen.add(item);
                                 results.push(item);
                             }
-                        }
-                    });
+                        });
+                    }
                 });
             } else if (mode === 'meaning') {
-                // 釋義反查：利用倒排索引大幅縮小搜索範圍
                 if (query.length > 0 && meaningIndex.has(query[0])) {
-                    // 取出包含查詢詞「第一個字」的所有條目索引
                     const candidateIndices = Array.from(meaningIndex.get(query[0]));
-                    // 僅在這些候選條目中進行完整字串匹配
                     results = candidateIndices.map(i => dictData[i]).filter(item => {
                         const inMeaning = item.d?.[1]?.some(m => m.includes(query));
                         const inEtym    = item.e?.includes(query);
@@ -649,116 +1044,36 @@
                         return inMeaning || inEtym || inNote;
                     });
                 } else {
-                    results = []; // 只要第一個字不在字典釋義裡，就必定無結果
+                    results = [];
                 }
             } else {
-                // 正則或精確模式，依然維持全表掃描
-                results = dictData.filter(item => {
-                    if (isRegexMode && regex) {
-                        return regex.test(item.z) || regex.test(item.y) || regex.test(item.p) || regex.test(item.a);
-                    }
-                    if (isExactMode) {
-                        return item.z === exactStr || item.y === exactStr || item.p === exactStr || item.a === exactStr;
-                    }
-                    return false;
-                });
-            }
-
-            if (results.length === 0) {
-                resultsDiv.setAttribute('aria-label', '查詢結果：無結果');
-                resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${escapeHtml(query)}」的相關條目</div>`;
-                return;
-            }
-
-            const MAX_RESULTS = 150;
-            let displayResults = results;
-            resultsDiv.setAttribute('aria-label', `查詢結果：共 ${results.length} 條`);
-
-            if (results.length > MAX_RESULTS) {
-                displayResults = results.slice(0, MAX_RESULTS);
-                const warningMsg = document.createElement('div');
-                warningMsg.style.cssText = "text-align: center; margin-bottom: 24px; padding: 12px; background: var(--gold-light); color: var(--gold); border: 1px solid rgba(139, 105, 20, 0.2); border-radius: 4px; font-size: 13.5px; letter-spacing: 0.05em;";
-                warningMsg.innerHTML = `找到<b>${results.length}</b>條結果。爲免卡頓，僅顯示前<b>${MAX_RESULTS}</b>條`;
-                resultsDiv.appendChild(warningMsg);
-            }
-
-            const fragment = document.createDocumentFragment();
-            displayResults.forEach((item, idx) => {
-                const card = document.createElement('div');
-                card.className = 'result-card';
-                card.style.animationDelay = (Math.min(idx, 10) * 0.06) + 's';
-                card.dataset.char = item.z || '';
-                card.dataset.phonetic = item.y || '';
-                const safeZ = escapeHtml(item.z) || '？';
-                const safeA = escapeHtml(item.a);
-                const safeY = escapeHtml(item.y) || '—';
-                const safeP = escapeHtml(item.p) || '—';
-
-                let tags = '';
-                if (item.a) tags += `<span class="tag xiesheng-tag" role="button" tabindex="0" onclick="searchByDomain('${escapeJS(item.a)}')" onkeypress="if(event.key==='Enter'||event.key===' ')searchByDomain('${escapeJS(item.a)}')" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</span>`;
-                if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
-                if (item.q === 1) tags += `<span class="tag">見戰國韻</span>`;
-
-                let meaningsHtml = '<p style="color:var(--ink-faint);font-style:italic;font-size:14px;">暫無釋義</p>';
-                let meaningNote = '';
-                if (item.d?.[1]?.length > 0) {
-                    meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
-                    // 修改後：傳入 index (i)，並手動插入 <span class="sense-num">
-                    meaningsHtml = `<ol class="meanings-list">${item.d[1].map((m, i) =>
-                        `<li><span class="sense-num">${i + 1}</span><span>${parseLinks(escapeHtml(m))}</span></li>`
-                    ).join('')}</ol>`;
+                if (isRegexMode && regex) {
+                    results = dictData.filter(item => regexMatches(regex, item.z, item.y, item.p, item.a));
+                } else if (isExactMode) {
+                    const seen = new Set();
+                    results = [];
+                    appendUnique(results, seen, zIndex.get(exactStr));
+                    appendUnique(results, seen, pinyinIndex.get(exactStr));
+                    appendUnique(results, seen, phoneticIndex.get(exactStr));
+                    appendUnique(results, seen, domainExactIndex.get(exactStr));
+                } else {
+                    results = [];
                 }
-
-                const safeN = item.n ? parseLinks(escapeHtml(item.n)) : '';
-
-                card.innerHTML = `
-                    <div class="char-banner">
-                        <div class="char-glyph-wrap">
-                            <div class="char-glyph">${safeZ}</div>
-                            ${item.z ? `<a class="zi-link" href="https://zi.tools/zi/${safeZ}" target="_blank" rel="noopener" title="在字統網查閱字源">字統↗</a>` : ''}
-                        </div>
-                        <div class="char-phonetics">
-                            <div class="phonetic-row">
-                                <span class="phonetic-label">擬音</span>
-                                <span class="phonetic-value">${safeY}</span>
-                                ${item.y ? `<button class="copy-btn" onclick="copyText('${escapeJS(item.y)}', this)" title="複製擬音" aria-label="複製擬音">📋</button>` : ''}
-                            </div>
-                            <div class="phonetic-row">
-                                <span class="phonetic-label">拼音</span>
-                                <span class="pinyin-value">${safeP}</span>
-                                ${item.p ? `<button class="copy-btn" onclick="copyText('${escapeJS(item.p)}', this)" title="複製拼音" aria-label="複製拼音">📋</button>` : ''}
-                            </div>
-                            ${tags ? `<div class="char-tags">${tags}</div>` : ''}
-                        </div>
-                        <button class="export-btn" onclick="exportCard(this.closest('.result-card'))" title="導出爲圖片">📷 導出</button>
-                    </div>
-                    <div class="card-body">
-                        <div class="section">
-                            <div class="section-header">
-                                <span class="section-label">釋義</span>${meaningNote}
-                            </div>
-                            ${meaningsHtml}
-                        </div>
-                        ${safeN ? `
-                        <div class="section-divider"></div>
-                        <div class="section">
-                            <div class="section-header">
-                                <span class="section-label">注釋</span>
-                            </div>
-                            <div class="text-block annotation">${safeN}</div>
-                        </div>` : ''}
-                    </div>`;
-                fragment.appendChild(card);
-            });
-            resultsDiv.appendChild(fragment);
-
-            if (results.length > MAX_RESULTS) {
-                const bottomMsg = document.createElement('div');
-                bottomMsg.style.cssText = "text-align: center; margin-top: 10px; color: var(--ink-faint); font-size: 13px;";
-                bottomMsg.innerText = `—— 還有${results.length - MAX_RESULTS}條結果已省略 ——`;
-                resultsDiv.appendChild(bottomMsg);
             }
+
+            currentResults = results;
+            renderPaginatedResults(updateUrl);
         }
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        let hadController = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (hadController) showUpdateNotification();
+            hadController = true;
+        });
+      });
+    }
     </script>
 </body>
 </html>
