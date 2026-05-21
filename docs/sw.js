@@ -1,12 +1,14 @@
 const CACHE_PREFIX = 'nocm';
-const SHELL_CACHE = `${CACHE_PREFIX}-shell-v1`;
-const STATIC_CACHE = `${CACHE_PREFIX}-static-v1`;
+const SHELL_CACHE = `${CACHE_PREFIX}-shell-v2`;
+const STATIC_CACHE = `${CACHE_PREFIX}-static-v2`;
 const DICT_CACHE_PREFIX = `${CACHE_PREFIX}-dict`;
 
 const scopeUrl = new URL(self.registration.scope);
 const BASE_PATH = scopeUrl.pathname.endsWith('/') ? scopeUrl.pathname : `${scopeUrl.pathname}/`;
 const SHELL_URLS = [BASE_PATH, `${BASE_PATH}index.html`];
 const STATIC_URLS = [
+  `${BASE_PATH}styles.css`,
+  `${BASE_PATH}script.js`,
   `${BASE_PATH}manifest.webmanifest`,
   `${BASE_PATH}icons/icon-192.png`,
   `${BASE_PATH}icons/icon-512.png`,
@@ -62,6 +64,10 @@ async function cacheFirst(request) {
   return response;
 }
 
+function isStaticAsset(url) {
+  return /\.(?:css|js|webmanifest|png|svg|ico|woff2?)$/i.test(url.pathname);
+}
+
 self.addEventListener('install', event => {
   event.waitUntil(
     Promise.all([
@@ -104,5 +110,5 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  event.respondWith(cacheFirst(request));
+  event.respondWith(isStaticAsset(url) ? staleWhileRevalidate(request) : cacheFirst(request));
 });
