@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "新最小上古漢語（NOCM）查詢",
-  "short_name": "NOCM 查詢",
+  "name": "基於文獻的上古漢語（POC）查詢",
+  "short_name": "POC查詢",
   "description": "支援漢字、拼音、上古擬音、諧聲域與釋義反查的上古漢語查詢工具。",
   "lang": "zh-TW",
   "dir": "ltr",

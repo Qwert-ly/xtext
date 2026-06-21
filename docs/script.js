@@ -4,7 +4,8 @@ const zIndex = new Map();
 const pinyinIndex = new Map();
 const phoneticIndex = new Map();
 const domainExactIndex = new Map();
-const DICT_CACHE = 'nocm-dict-v2';
+const DICT_CACHE = 'poc-dict-v3';
+const DICT_URLS = ['base.json.gz', 'extra.json.gz'];
 const SEARCH_MODES = new Set(['default', 'exact', 'regex', 'meaning']);
 const supportsGzipStreams = 'DecompressionStream' in window;
 let _updatedFiles = false;
@@ -120,6 +121,103 @@ async function streamAndParseGz(response, progressCallback) {
     });
 }
 
+function sameCachedPayload(cachedResp, netResp) {
+    const etag = cachedResp.headers.get('ETag');
+    const newEtag = netResp.headers.get('ETag');
+    if (etag && newEtag) return etag === newEtag;
+
+    const lastMod = cachedResp.headers.get('Last-Modified');
+    const newLastMod = netResp.headers.get('Last-Modified');
+    if (lastMod && newLastMod) return lastMod === newLastMod;
+
+    if (etag || newEtag || lastMod || newLastMod) return false;
+
+    const oldLen = cachedResp.headers.get('Content-Length');
+    const newLen = netResp.headers.get('Content-Length');
+    return !!oldLen && !!newLen && oldLen === newLen;
+}
+
+let dictionaryRefreshPromise = null;
+
+function scheduleDictionaryCacheRefresh() {
+    if (!('caches' in window) || dictionaryRefreshPromise) return;
+    dictionaryRefreshPromise = checkDictionaryCacheRefresh()
+        .catch(error => console.warn('字典背景更新检查失败:', error))
+        .finally(() => { dictionaryRefreshPromise = null; });
+}
+
+async function cleanupLegacyDictionaryCaches() {
+    if (!('caches' in window)) return;
+    const keys = await caches.keys();
+    await Promise.all(
+        keys
+            .filter(key => (
+                (key.startsWith('poc-dict-') || key.startsWith('nocm-dict-')) &&
+                key !== DICT_CACHE
+            ))
+            .map(key => caches.delete(key))
+    );
+}
+
+async function checkDictionaryCacheRefresh() {
+    const cache = await caches.open(DICT_CACHE);
+    const cachedEntries = await Promise.all(DICT_URLS.map(async url => ({
+        url,
+        response: await cache.match(url),
+    })));
+
+    if (cachedEntries.some(entry => !entry.response)) return;
+
+    const refreshResults = await Promise.all(cachedEntries.map(async ({ url, response: cachedResp }) => {
+        const condHeaders = {};
+        const etag = cachedResp.headers.get('ETag');
+        const lastMod = cachedResp.headers.get('Last-Modified');
+        if (etag) condHeaders['If-None-Match'] = etag;
+        if (lastMod) condHeaders['If-Modified-Since'] = lastMod;
+
+        const netResp = await fetch(url, { cache: 'no-cache', headers: condHeaders });
+
+        if (netResp.status === 304) return { url, changed: false };
+
+        if (!netResp.ok) {
+            throw new Error(`${url} 更新检查返回 ${netResp.status}`);
+        }
+
+        if (sameCachedPayload(cachedResp, netResp)) {
+            return { url, changed: false };
+        }
+
+        return {
+            url,
+            changed: true,
+            response: netResp,
+        };
+    }));
+
+    const changedResults = refreshResults.filter(result => result.changed);
+    if (!changedResults.length) return;
+
+    const nextResponses = new Map();
+    refreshResults.forEach(result => {
+        nextResponses.set(result.url, result.changed ? result.response : cachedEntries.find(entry => entry.url === result.url).response);
+    });
+
+    const [nextBase, nextExtra] = await Promise.all(
+        DICT_URLS.map(url => streamAndParseGz(nextResponses.get(url).clone()))
+    );
+
+    if (!Array.isArray(nextBase) || !Array.isArray(nextExtra) || nextBase.length !== nextExtra.length) {
+        console.warn('字典更新已检测到，但 base/extra 条目数不一致，本次跳过回写。');
+        return;
+    }
+
+    await Promise.all(changedResults.map(result => cache.put(result.url, result.response)));
+    if (!_updatedFiles) {
+        _updatedFiles = true;
+        showUpdateNotification();
+    }
+}
+
 async function fetchGzJson(url, progressCallback) {
     const fetchFromNetwork = async () => {
         const resp = await fetch(url, { cache: 'no-cache' });
@@ -141,35 +239,6 @@ async function fetchGzJson(url, progressCallback) {
     const cachedResp = await cache.match(url);
 
     if (cachedResp) {
-        (async () => {
-            try {
-                const etag = cachedResp.headers.get('ETag');
-                const lastMod = cachedResp.headers.get('Last-Modified');
-                const condHeaders = {};
-                if (etag) condHeaders['If-None-Match'] = etag;
-                if (lastMod) condHeaders['If-Modified-Since'] = lastMod;
-
-                const netResp = await fetch(url, { cache: 'no-cache', headers: condHeaders });
-
-                if (netResp.ok) {
-                    const newEtag = netResp.headers.get('ETag');
-                    const newLastMod = netResp.headers.get('Last-Modified');
-
-                    if (etag && newEtag && etag === newEtag) return;
-                    if (lastMod && newLastMod && lastMod === newLastMod) return;
-
-                    const oldLen = cachedResp.headers.get('Content-Length');
-                    const newLen = netResp.headers.get('Content-Length');
-                    if (!newEtag && !newLastMod && oldLen && newLen && oldLen === newLen) return;
-
-                    await cache.put(url, netResp);
-                    if (!_updatedFiles) {
-                        _updatedFiles = true;
-                        showUpdateNotification();
-                    }
-                }
-            } catch (_e) { console.warn(`${url}背景更新檢查失敗:`, _e); }
-        })();
         const data = await streamAndParseGz(cachedResp.clone(), progressCallback);
         return { data, fromCache: true };
     }
@@ -266,7 +335,7 @@ async function exportCard(card) {
 
         const zi = sanitizeFilename(card.dataset.char || 'result-card');
         const phonetic = sanitizeFilename(card.dataset.phonetic || '');
-        const filename = phonetic ? `nocm-${zi}-${phonetic}.png` : `nocm-${zi}.png`;
+        const filename = phonetic ? `poc-${zi}-${phonetic}.png` : `poc-${zi}.png`;
 
         const link = document.createElement('a');
         link.download = filename;
@@ -291,19 +360,22 @@ async function exportCard(card) {
 async function initDictionary() {
     if (dictionaryLoading) return;
     dictionaryLoading = true;
+    cleanupLegacyDictionaryCaches().catch(() => {});
 
     const input  = document.getElementById('searchInput');
     const btn    = document.getElementById('searchBtn');
     const status = document.getElementById('extraStatus');
+    let baseFromCache = false;
 
     try {
         btn.dataset.action = 'loading';
         btn.disabled = true;
         btn.textContent = '加載中...';
-        const { data: baseData } = await fetchGzJson('base.json.gz', (loaded, total) => {
+        const { data: baseData, fromCache } = await fetchGzJson('base.json.gz', (loaded, total) => {
             const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
             input.placeholder = `加載基礎字庫... ${pct}`;
         });
+        baseFromCache = fromCache;
         dictData = baseData;
         buildBaseIndexes();
         input.placeholder = `已加載${dictData.length}條目—請輸入關鍵字`;
@@ -326,11 +398,12 @@ async function initDictionary() {
     try {
         status.style.display = 'block';
         status.style.color = 'var(--gold)';
-        const { data: extraData } = await fetchGzJson('extra.json.gz', (loaded, total) => {
+        const { data: extraData, fromCache: extraFromCache } = await fetchGzJson('extra.json.gz', (loaded, total) => {
             const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
             status.innerText = `獲取釋義與注釋... ${pct}`;
         });
 
+        if (baseFromCache || extraFromCache) scheduleDictionaryCacheRefresh();
         if (dictData.length === extraData.length) {
             extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
 
@@ -437,7 +510,7 @@ function parseLinks(text) {
 
 const DEFAULT_PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
-const PAGE_SIZE_STORAGE_KEY = 'nocm-page-size';
+const PAGE_SIZE_STORAGE_KEY = 'poc-page-size';
 let currentResults = [];
 let currentQuery = '';
 let currentMode = 'default';

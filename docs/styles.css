@@ -44,13 +44,51 @@ body {
 .page-header h1 { font-size: 26px; font-weight: 500; letter-spacing: 0.15em; color: var(--indigo); }
 .page-header h1 a { color: inherit; text-decoration: none; transition: color 0.2s; }
 .page-header h1 a:hover { color: var(--vermilion); }
-.search-container { position: sticky; top: env(safe-area-inset-top, 0); background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 12px; }
+.search-container { position: sticky; top: env(safe-area-inset-top, 0); background: var(--paper); padding: 12px 0 16px; z-index: 100; margin-bottom: 12px; transition: box-shadow 0.3s ease, border-bottom 0.3s ease;}
 @supports (backdrop-filter: blur(8px)) {
-    .search-container { background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(8px); }
+    .search-container { background: color-mix(in srgb, var(--paper) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);}
 }
-.search-box { display: flex; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--paper-card); box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: border-color 0.2s, box-shadow 0.2s; }
-.search-box:focus-within { border-color: var(--indigo); box-shadow: 0 2px 16px rgba(44,62,107,0.12); }
-.search-options { display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+.search-box { display: flex; align-items: center; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--paper-card); box-shadow: 0 8px 30px rgba(0,0,0,0.06); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding: 6px 6px 6px 16px;}
+.search-box:focus-within { border-color: var(--indigo); box-shadow: 0 12px 40px rgba(44,62,107,0.12); transform: translateY(-2px);}
+.search-icon {
+    color: var(--ink-faint);
+    transition: color 0.3s;
+}
+.search-box:focus-within .search-icon {
+    color: var(--indigo);
+}
+input[type="text"] { 
+    padding: 14px 16px; 
+    font-size: 16px;
+}
+#searchBtn {
+    border-radius: 12px;
+    font-weight: bold;
+}
+.search-options {
+    display: flex;
+    gap: 0;
+    margin-top: 16px;
+    justify-content: center;
+    background: var(--paper-inset);
+    padding: 4px;
+    border-radius: 12px;
+    display: inline-flex;
+    margin-left: auto;
+    margin-right: auto;
+}
+.radio-btn {
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink-soft);
+}
+.radio-label input:checked + .radio-btn {
+    background: var(--paper-card);
+    color: var(--indigo);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-color: transparent;
+}
 .radio-label { cursor: pointer; display: inline-flex; }
 .radio-label input {
   position: absolute;
@@ -104,14 +142,14 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 .result-card { background: var(--paper-card); margin-bottom: 28px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 3px 20px rgba(0,0,0,0.05); overflow: hidden; animation: fadeUp 0.35s ease both; transition: box-shadow 0.25s ease, transform 0.2s ease; content-visibility: auto; contain-intrinsic-size: 260px; }
 .result-card:hover {
     box-shadow: 0 6px 28px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
+    transform: translateY(-4px);
 }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .char-banner { background: var(--indigo); color: #fff; padding: 20px 28px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .char-glyph-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
-.char-glyph { font-size: 64px; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.3); user-select: text; }
-.zi-link { font-size: 11px; color: rgba(255,255,255,0.5); text-decoration: none; letter-spacing: 0.06em; border-bottom: 1px dashed rgba(255,255,255,0.3); transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
-.zi-link:hover { color: #f0c27f; border-bottom-color: #f0c27f; }
+.char-glyph { font-size: 72px; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.3); user-select: text; display: flex; align-items: center; justify-content: center; border-radius: 20px; }
+.zi-link { font-size: 11px; color: rgba(255,255,255,0.7); text-decoration: none; letter-spacing: 0.06em; border-bottom: 1px dashed rgba(255,255,255,0.3); transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
+.zi-link:hover { color: #f0c27f; border-bottom-color: #f0c27f; text-shadow: 0 0 8px rgba(240, 194, 127, 0.4);}
 .char-phonetics { flex: 1 1 240px; min-width: 0; }
 .phonetic-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .phonetic-label { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; width: 28px; flex-shrink: 0; }
@@ -135,10 +173,11 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 .sense-num {
     min-width: 20px;
     height: 20px;
-    background: var(--vermilion);
-    color: #fff;
-    border-radius: 50%;
-    font-size: 11px;
+    background: var(--vermilion-light);
+    color: var(--vermilion);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
     font-family: "Noto Sans Mono", monospace;
     display: flex;
     align-items: center;

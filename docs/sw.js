@@ -1,4 +1,4 @@
-const CACHE_PREFIX = 'nocm';
+const CACHE_PREFIX = 'poc';
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-v2`;
 const STATIC_CACHE = `${CACHE_PREFIX}-static-v2`;
 const DICT_CACHE_PREFIX = `${CACHE_PREFIX}-dict`;
@@ -30,7 +30,8 @@ async function putIfCacheable(cacheName, request, response) {
   return response;
 }
 
-async function staleWhileRevalidate(request) {
+async function staleWhileRevalidate(event) {
+  const { request } = event;
   const cache = await caches.open(STATIC_CACHE);
   const cached = await cache.match(request);
   const networkPromise = fetch(request)
@@ -38,7 +39,7 @@ async function staleWhileRevalidate(request) {
     .catch(() => null);
 
   if (cached) {
-    networkPromise.catch(() => {});
+    event.waitUntil(networkPromise.then(() => undefined, () => undefined));
     return cached;
   }
 
@@ -105,10 +106,10 @@ self.addEventListener('fetch', event => {
 
   if (url.origin !== self.location.origin) {
     if (EXTERNAL_CACHE_HOSTS.has(url.hostname)) {
-      event.respondWith(staleWhileRevalidate(request));
+      event.respondWith(staleWhileRevalidate(event));
     }
     return;
   }
 
-  event.respondWith(isStaticAsset(url) ? staleWhileRevalidate(request) : cacheFirst(request));
+  event.respondWith(isStaticAsset(url) ? staleWhileRevalidate(event) : cacheFirst(request));
 });
