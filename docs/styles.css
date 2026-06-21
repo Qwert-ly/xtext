@@ -67,13 +67,12 @@ input[type="text"] {
 }
 .search-options {
     display: flex;
+    width: fit-content;
     gap: 0;
     margin-top: 16px;
-    justify-content: center;
     background: var(--paper-inset);
     padding: 4px;
     border-radius: 12px;
-    display: inline-flex;
     margin-left: auto;
     margin-right: auto;
 }
