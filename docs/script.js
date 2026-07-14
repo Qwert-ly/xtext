@@ -644,8 +644,8 @@ function renderResultCard(item, idx) {
 
     let tags = '';
     if (item.a) tags += `<button class="tag xiesheng-tag" type="button" data-domain="${safeA}" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</button>`;
-    if (item.s === 1) tags += `<span class="tag">見詩經韻</span>`;
-    if (item.q === 1) tags += `<span class="tag">見戰國韻</span>`;
+    if (item.s === 1) tags += `<a class="tag rhyme-tag" href="https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱詩經韻">見詩經韻</a>`;
+    if (item.q === 1) tags += `<a class="tag rhyme-tag" href="https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱戰國韻">見戰國韻</a>`;
 
     let meaningsHtml = '<p class="empty-meaning">暫無釋義</p>';
     let meaningNote = '';
