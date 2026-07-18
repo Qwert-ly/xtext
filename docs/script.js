@@ -4,7 +4,7 @@ const zIndex = new Map();
 const pinyinIndex = new Map();
 const phoneticIndex = new Map();
 const domainExactIndex = new Map();
-const DICT_CACHE = 'poc-dict-v3';
+const DICT_CACHE = 'pboc-dict-v1';
 const DICT_URLS = ['base.json.gz', 'extra.json.gz'];
 const SEARCH_MODES = new Set(['default', 'exact', 'regex', 'meaning']);
 const supportsGzipStreams = 'DecompressionStream' in window;
@@ -144,19 +144,6 @@ function scheduleDictionaryCacheRefresh() {
     dictionaryRefreshPromise = checkDictionaryCacheRefresh()
         .catch(error => console.warn('字典背景更新检查失败:', error))
         .finally(() => { dictionaryRefreshPromise = null; });
-}
-
-async function cleanupLegacyDictionaryCaches() {
-    if (!('caches' in window)) return;
-    const keys = await caches.keys();
-    await Promise.all(
-        keys
-            .filter(key => (
-                (key.startsWith('poc-dict-') || key.startsWith('nocm-dict-')) &&
-                key !== DICT_CACHE
-            ))
-            .map(key => caches.delete(key))
-    );
 }
 
 async function checkDictionaryCacheRefresh() {
@@ -335,7 +322,7 @@ async function exportCard(card) {
 
         const zi = sanitizeFilename(card.dataset.char || 'result-card');
         const phonetic = sanitizeFilename(card.dataset.phonetic || '');
-        const filename = phonetic ? `poc-${zi}-${phonetic}.png` : `poc-${zi}.png`;
+        const filename = phonetic ? `pboc-${zi}-${phonetic}.png` : `pboc-${zi}.png`;
 
         const link = document.createElement('a');
         link.download = filename;
@@ -360,8 +347,6 @@ async function exportCard(card) {
 async function initDictionary() {
     if (dictionaryLoading) return;
     dictionaryLoading = true;
-    cleanupLegacyDictionaryCaches().catch(() => {});
-
     const input  = document.getElementById('searchInput');
     const btn    = document.getElementById('searchBtn');
     const status = document.getElementById('extraStatus');
@@ -510,7 +495,7 @@ function parseLinks(text) {
 
 const DEFAULT_PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
-const PAGE_SIZE_STORAGE_KEY = 'poc-page-size';
+const PAGE_SIZE_STORAGE_KEY = 'pboc-page-size';
 let currentResults = [];
 let currentQuery = '';
 let currentMode = 'default';

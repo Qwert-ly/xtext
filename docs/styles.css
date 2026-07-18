@@ -7,6 +7,8 @@
     --gold: #8b6914;         --gold-light: #f5eed8;
     --border: #d6cfc5;       --border-light: #e8e2d8;
     --banner-gold: #f0c27f;
+    --title-accent: #8c6330; --title-muted: #716a62;   --title-rule: #c7bfb3;
+    --paper-grid: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%23f7f3ee'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%23e8e2d8' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%23e8e2d8' opacity='0.5'/%3E%3C/svg%3E");
     --r-xs: 3px;   --r-sm: 5px;   --r-md: 8px;   --r-lg: 12px;
     --shadow-search:       0 4px 24px rgba(0, 0, 0, 0.07);
     --shadow-search-focus: 0 6px 32px rgba(44, 62, 107, 0.14);
@@ -22,14 +24,13 @@
         --indigo: #6b84c4;   --indigo-light: #1e2638;
         --gold: #c2a153;     --gold-light: #302612;
         --border: #4a4540;   --border-light: #36322d;
+        --title-accent: #d2ad71; --title-muted: #b8b0a5; --title-rule: #5b554c;
+        --paper-grid: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%231c1a17'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%2336322d' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%2336322d' opacity='0.5'/%3E%3C/svg%3E");
 
         --shadow-search:       none;
         --shadow-search-focus: 0 0 0 3px rgba(107, 132, 196, 0.3);
         --shadow-card:         0 1px 0 rgba(255, 255, 255, 0.04);
         --shadow-card-hover:   0 4px 16px rgba(0, 0, 0, 0.4);
-    }
-    body {
-        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%231c1a17'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%2336322d' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%2336322d' opacity='0.5'/%3E%3C/svg%3E");
     }
     input[type="text"] { color: var(--ink); }
     button:disabled { background: var(--ink-soft); }
@@ -47,41 +48,85 @@ body {
     margin: 0 auto;
     padding: 40px 24px;
     line-height: 1.8;
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='60' height='60' fill='%23f7f3ee'/%3E%3Crect x='0' y='29.5' width='60' height='1' fill='%23e8e2d8' opacity='0.5'/%3E%3Crect x='29.5' y='0' width='1' height='60' fill='%23e8e2d8' opacity='0.5'/%3E%3C/svg%3E");
+    background-image: var(--paper-grid);
     min-height: 100vh;
 }
 
 .page-header {
     text-align: center;
-    margin-bottom: 40px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+    padding-bottom: 22px;
 }
 .page-header::after {
-    content: '';
+    content: "";
     display: block;
-    width: 64px;
-    height: 1.5px;
-    background: linear-gradient(90deg, transparent, var(--vermilion) 25%, var(--vermilion) 75%, transparent);
-    margin: 14px auto 0;
-    opacity: 0.7;
+    width: min(100%, 360px);
+    height: 1px;
+    margin: 22px auto 0;
+    background: var(--title-rule);
 }
+
 .page-header h1 {
-    font-size: 24px;
-    font-weight: 400;
-    letter-spacing: 0.2em;
-    color: var(--indigo);
+    font-weight: normal;
+    margin: 0;
 }
 .page-header h1 a {
     color: inherit;
     text-decoration: none;
-    padding-bottom: 2px;
-    border-bottom: 1px solid transparent;
-    transition: color 0.2s, border-color 0.2s;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+    transition: color 0.2s ease;
 }
-.page-header h1 a:hover {
-    color: var(--vermilion);
-    border-bottom-color: color-mix(in srgb, var(--vermilion) 40%, transparent);
+
+.project-chinese-line {
+    color: var(--ink);
+    font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    line-height: 1.35;
+    margin: 0;
+    transition: color 0.2s ease;
+}
+
+.project-acronym {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    order: -1;
+    margin-bottom: 9px;
+    color: var(--title-accent);
+    font-family: Georgia, "Times New Roman", "Noto Serif TC", serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+.project-acronym::before,
+.project-acronym::after {
+    content: "";
+    width: 34px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.55;
+}
+
+.project-english-line {
+    order: 1;
+    margin-top: 7px;
+    color: var(--title-muted);
+    font-family: Georgia, "Times New Roman", "Noto Serif TC", serif;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.09em;
+    line-height: 1.4;
+}
+.page-header h1 a:hover .project-chinese-line,
+.page-header h1 a:hover .project-acronym {
+    color: var(--title-accent);
 }
 
 .search-container {
@@ -589,8 +634,12 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 
 @media (max-width: 640px) {
     body { padding: 20px 14px; }
-    .page-header { margin-bottom: 24px; padding-bottom: 18px; }
-    .page-header h1 { font-size: 19px; letter-spacing: 0.13em; }
+    .page-header { margin-bottom: 26px; padding-bottom: 16px; }
+    .page-header::after { width: min(100%, 280px); margin-top: 17px; }
+    .project-english-line { margin-top: 5px; font-size: 11px; }
+    .project-chinese-line { font-size: 25px; }
+    .project-acronym { gap: 8px; margin-bottom: 8px; font-size: 11px; }
+    .project-acronym::before, .project-acronym::after { width: 28px; }
     .search-container { padding: 8px 0 12px; }
     .search-box { border-radius: var(--r-xs); }
     input[type="text"] { padding: 10px 10px; font-size: 14px; }
@@ -619,7 +668,9 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 }
 
 @media (max-width: 380px) {
-    .page-header h1 { font-size: 17px; }
+    .project-english-line { font-size: 10px; }
+    .project-chinese-line { font-size: 22px; }
+    .project-acronym { font-size: 10px; }
     .char-glyph { font-size: 42px; }
     .phonetic-value { font-size: 14px; }
     .pinyin-value { font-size: 12px; }

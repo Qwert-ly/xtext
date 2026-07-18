@@ -1,4 +1,4 @@
-const CACHE_PREFIX = 'poc';
+const CACHE_PREFIX = 'pboc';
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-v2`;
 const STATIC_CACHE = `${CACHE_PREFIX}-static-v2`;
 const DICT_CACHE_PREFIX = `${CACHE_PREFIX}-dict`;
