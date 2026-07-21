@@ -4,6 +4,7 @@ const zIndex = new Map();
 const pinyinIndex = new Map();
 const phoneticIndex = new Map();
 const domainExactIndex = new Map();
+const initialExactIndex = new Map();
 const DICT_CACHE = 'pboc-dict-v1';
 const DICT_URLS = ['base.json.gz', 'extra.json.gz'];
 const SEARCH_MODES = new Set(['default', 'exact', 'regex', 'meaning']);
@@ -65,6 +66,11 @@ function buildBaseIndexes() {
         addToIndex(phoneticIndex, item.y, item);
         addToIndex(domainExactIndex, item.a, item);
     });
+}
+
+function buildInitialIndex() {
+    initialExactIndex.clear();
+    dictData.forEach(item => addToIndex(initialExactIndex, item.m, item));
 }
 
 function appendUnique(target, seen, items) {
@@ -258,9 +264,9 @@ function handleResultsClick(event) {
         return;
     }
 
-    const domainBtn = event.target.closest('.xiesheng-tag');
-    if (domainBtn) {
-        searchByDomain(domainBtn.dataset.domain || '');
+    const exactSearchBtn = event.target.closest('[data-exact-search]');
+    if (exactSearchBtn) {
+        searchExact(exactSearchBtn.dataset.exactSearch || '');
         return;
     }
 
@@ -391,6 +397,7 @@ async function initDictionary() {
         if (baseFromCache || extraFromCache) scheduleDictionaryCacheRefresh();
         if (dictData.length === extraData.length) {
             extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
+            buildInitialIndex();
 
             meaningIndex.clear();
             dictData.forEach((item, i) => {
@@ -460,8 +467,8 @@ function handleEnter(e) {
     if (e.key === 'Enter' && !e.isComposing) searchDict();
 }
 
-function searchByDomain(domain) {
-    document.getElementById('searchInput').value = domain;
+function searchExact(value) {
+    document.getElementById('searchInput').value = value;
     document.querySelector('input[name="searchMode"][value="exact"]').checked = true;
     searchDict();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -482,15 +489,23 @@ function safeRegex(str, flags = "") {
     }
 }
 
-function parseLinks(text) {
+function parseLinks(text, formatText = escapeHtml) {
     if (!text) return text;
     const urlRegex = /((https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s（）()，。；：「」『』、]*)?)/g;
 
-    return text.replace(urlRegex, function(url) {
+    let html = '';
+    let lastIndex = 0;
+    for (const match of text.matchAll(urlRegex)) {
+        const url = match[0];
+        html += formatText(text.slice(lastIndex, match.index));
         let cleanUrl = url.replace(/[.,?!)\]]+$/, '');
+        const trailingText = url.slice(cleanUrl.length);
         let href = cleanUrl.startsWith('http') ? cleanUrl : 'https://' + cleanUrl;
-        return `<a href="${href}" target="_blank" rel="noopener" class="annotation-link">${cleanUrl}</a>`;
-    });
+        html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="annotation-link">${escapeHtml(cleanUrl)}</a>`;
+        html += formatText(trailingText);
+        lastIndex = match.index + url.length;
+    }
+    return html + formatText(text.slice(lastIndex));
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -502,6 +517,14 @@ let currentMode = 'default';
 let currentPage = 1;
 let pendingUrlPage = 1;
 let pageSize = readStoredPageSize();
+
+function highlightMeaningSearchTerm(text) {
+    const escapedText = escapeHtml(text);
+    if (currentMode !== 'meaning' || !currentQuery) return escapedText;
+
+    const escapedQuery = escapeHtml(currentQuery);
+    return escapedText.split(escapedQuery).join(`<mark class="meaning-search-hit">${escapedQuery}</mark>`);
+}
 
 function normalizePageSize(value) {
     const parsed = parseInt(value, 10);
@@ -625,10 +648,12 @@ function renderResultCard(item, idx) {
     const safeA = escapeHtml(item.a);
     const safeY = escapeHtml(item.y) || '—';
     const safeP = escapeHtml(item.p) || '—';
+    const safeC = escapeHtml(item.c);
+    const safeM = escapeHtml(item.m);
     const ziUrl = item.z ? encodeURIComponent(item.z) : '';
 
     let tags = '';
-    if (item.a) tags += `<button class="tag xiesheng-tag" type="button" data-domain="${safeA}" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</button>`;
+    if (item.a) tags += `<button class="tag xiesheng-tag" type="button" data-exact-search="${safeA}" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</button>`;
     if (item.s === 1) tags += `<a class="tag rhyme-tag" href="https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱詩經韻">見詩經韻</a>`;
     if (item.q === 1) tags += `<a class="tag rhyme-tag" href="https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱戰國韻">見戰國韻</a>`;
 
@@ -637,11 +662,11 @@ function renderResultCard(item, idx) {
     if (item.d?.[1]?.length > 0) {
         meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
         meaningsHtml = `<ol class="meanings-list">${item.d[1].map((m, i) =>
-            `<li><span class="sense-num">${i + 1}</span><span>${parseLinks(escapeHtml(m))}</span></li>`
+            `<li><span class="sense-num">${i + 1}</span><span>${parseLinks(m, highlightMeaningSearchTerm)}</span></li>`
         ).join('')}</ol>`;
     }
 
-    const safeN = item.n ? parseLinks(escapeHtml(item.n)) : '';
+    const safeN = item.n ? parseLinks(item.n, highlightMeaningSearchTerm) : '';
 
     card.innerHTML = `
         <div class="char-banner">
@@ -660,6 +685,20 @@ function renderResultCard(item, idx) {
                     <span class="pinyin-value">${safeP}</span>
                     ${item.p ? `<button class="copy-btn" type="button" data-copy-text="${safeP}" title="複製拼音" aria-label="複製拼音">📋</button>` : ''}
                 </div>
+                ${item.c || item.m ? `
+                <div class="derived-phonology" aria-label="推導中古音韻">
+                    <span class="derived-heading">推導中古</span>
+                    ${item.c ? `
+                    <span class="derived-item">
+                        <span class="derived-label">音韻地位</span>
+                        <span class="derived-value">${safeC}</span>
+                    </span>` : ''}
+                    ${item.m ? `
+                    <span class="derived-item">
+                        <span class="derived-label">聲首</span>
+                        <button class="derived-value initial-search" type="button" data-exact-search="${safeM}" title="點擊查找同聲首字" aria-label="聲首 ${safeM}，點擊查詢同聲首字">${safeM}</button>
+                    </span>` : ''}
+                </div>` : ''}
                 ${tags ? `<div class="char-tags">${tags}</div>` : ''}
             </div>
             <button class="export-btn" type="button" title="導出爲圖片">📷 導出</button>
@@ -845,6 +884,7 @@ function searchDict(updateUrl = true) {
             appendUnique(results, seen, pinyinIndex.get(exactStr));
             appendUnique(results, seen, phoneticIndex.get(exactStr));
             appendUnique(results, seen, domainExactIndex.get(exactStr));
+            appendUnique(results, seen, initialExactIndex.get(exactStr));
         } else {
             results = [];
         }
