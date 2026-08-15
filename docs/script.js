@@ -491,7 +491,7 @@ function safeRegex(str, flags = "") {
 
 function parseLinks(text, formatText = escapeHtml) {
     if (!text) return text;
-    const urlRegex = /((https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s（）()，。；：「」『』、]*)?)/g;
+    const urlRegex = /((?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}(?:\/[a-zA-Z0-9._~:/?@!$&'()*+,;=%#-]*)?)/g;
 
     let html = '';
     let lastIndex = 0;
@@ -500,12 +500,25 @@ function parseLinks(text, formatText = escapeHtml) {
         html += formatText(text.slice(lastIndex, match.index));
         let cleanUrl = url.replace(/[.,?!)\]]+$/, '');
         const trailingText = url.slice(cleanUrl.length);
+        if (url.length < 7) {
+            html += formatText(url);
+            lastIndex = match.index + url.length;
+            continue;
+        }
         let href = cleanUrl.startsWith('http') ? cleanUrl : 'https://' + cleanUrl;
         html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="annotation-link">${escapeHtml(cleanUrl)}</a>`;
         html += formatText(trailingText);
         lastIndex = match.index + url.length;
     }
     return html + formatText(text.slice(lastIndex));
+}
+
+function renderAnnotation(text) {
+    const lines = String(text).split(/\r?\n|\r/).filter(line => line.trim());
+    if (!lines.length) return '';
+    return `<ul class="annotation-list">${lines.map(line =>
+        `<li>${parseLinks(line, highlightMeaningSearchTerm)}</li>`
+    ).join('')}</ul>`;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -666,7 +679,7 @@ function renderResultCard(item, idx) {
         ).join('')}</ol>`;
     }
 
-    const safeN = item.n ? parseLinks(item.n, highlightMeaningSearchTerm) : '';
+    const annotationHtml = item.n ? renderAnnotation(item.n) : '';
 
     card.innerHTML = `
         <div class="char-banner">
@@ -710,13 +723,13 @@ function renderResultCard(item, idx) {
                 </div>
                 ${meaningsHtml}
             </div>
-            ${safeN ? `
+            ${annotationHtml ? `
             <div class="section-divider"></div>
             <div class="section">
                 <div class="section-header">
                     <span class="section-label">注釋</span>
                 </div>
-                <div class="text-block annotation">${safeN}</div>
+                <div class="text-block annotation">${annotationHtml}</div>
             </div>` : ''}
         </div>`;
     return card;

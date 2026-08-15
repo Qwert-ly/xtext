@@ -433,10 +433,12 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     white-space: nowrap;
 }
 .derived-value {
+    display: inline-block;
+    flex: 0 0 auto;
     font-family: "Noto Sans Mono", "Noto Serif TC", monospace;
     font-size: 13px;
     color: rgba(255, 255, 255, 0.86);
-    word-break: break-all;
+    white-space: nowrap;
 }
 .initial-search {
     padding: 0;
@@ -492,11 +494,14 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 .section:last-child { margin-bottom: 0; }
 .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .section-label {
+    display: inline-block;
+    flex: 0 0 auto;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.14em;
     color: var(--ink-faint);
     text-transform: uppercase;
+    white-space: nowrap;
 }
 .section-note { font-size: 12px; color: var(--ink-faint); margin-left: 4px; }
 .section-divider { height: 1px; background: var(--border-light); margin: 16px 0; }
@@ -553,6 +558,20 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     border-left-color: var(--gold);
     background: var(--gold-light);
     color: var(--ink);
+}
+.annotation-list {
+    margin: 0;
+    padding-inline-start: 1.25em;
+}
+.annotation-list li {
+    padding-inline-start: 0.15em;
+}
+.annotation-list li + li {
+    margin-top: 0.45em;
+}
+.annotation-list li::marker {
+    color: var(--gold);
+    font-size: 0.85em;
 }
 
 .no-result {
