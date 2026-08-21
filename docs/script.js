@@ -121,12 +121,6 @@ async function streamAndParseJson(response, progressCallback, { compressed = fal
     return JSON.parse(await new Response(stream).text());
 }
 
-async function streamAndParseGz(response, progressCallback) {
-    return streamAndParseJson(response, progressCallback, {
-        compressed: !responseBodyIsAlreadyDecoded(response),
-    });
-}
-
 function sameCachedPayload(cachedResp, netResp) {
     const etag = cachedResp.headers.get('ETag');
     const newEtag = netResp.headers.get('ETag');
@@ -196,7 +190,10 @@ async function checkDictionaryCacheRefresh() {
     });
 
     const [nextBase, nextExtra] = await Promise.all(
-        DICT_URLS.map(url => streamAndParseGz(nextResponses.get(url).clone()))
+        DICT_URLS.map(url => {
+            const r = nextResponses.get(url).clone();
+            return streamAndParseJson(r, null, { compressed: !responseBodyIsAlreadyDecoded(r) });
+        })
     );
 
     if (!Array.isArray(nextBase) || !Array.isArray(nextExtra) || nextBase.length !== nextExtra.length) {
@@ -217,7 +214,7 @@ async function fetchGzJson(url, progressCallback) {
         if (!resp.ok) throw new Error(`請求${url}失敗`);
 
         const respForCache = ('caches' in window) ? resp.clone() : null;
-        const data = await streamAndParseGz(resp, progressCallback);
+        const data = await streamAndParseJson(resp, progressCallback, { compressed: !responseBodyIsAlreadyDecoded(resp) });
 
         if (respForCache) {
             const cache = await caches.open(DICT_CACHE);
@@ -232,7 +229,7 @@ async function fetchGzJson(url, progressCallback) {
     const cachedResp = await cache.match(url);
 
     if (cachedResp) {
-        const data = await streamAndParseGz(cachedResp.clone(), progressCallback);
+        const data = await streamAndParseJson(cachedResp.clone(), progressCallback, { compressed: !responseBodyIsAlreadyDecoded(cachedResp) });
         return { data, fromCache: true };
     }
 
@@ -248,11 +245,6 @@ async function copyText(text, btnElement) {
     } catch (err) {
         console.error('複製失敗:', err);
     }
-}
-
-function hideUpdateNotification() {
-    const bar = document.getElementById('updateBar');
-    if (bar) bar.style.display = 'none';
 }
 
 function handleResultsClick(event) {
@@ -277,7 +269,9 @@ function handleResultsClick(event) {
 }
 
 function setupEventListeners() {
-    document.getElementById('searchInput')?.addEventListener('keydown', handleEnter);
+    document.getElementById('searchInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) searchDict();
+    });
     document.getElementById('searchBtn')?.addEventListener('click', () => {
         const btn = document.getElementById('searchBtn');
         if (btn?.dataset.action === 'retry') {
@@ -290,17 +284,25 @@ function setupEventListeners() {
         input.addEventListener('change', () => searchDict());
     });
     document.getElementById('reloadBtn')?.addEventListener('click', () => location.reload());
-    document.getElementById('dismissUpdateBtn')?.addEventListener('click', hideUpdateNotification);
+    document.getElementById('dismissUpdateBtn')?.addEventListener('click', () => {
+        const bar = document.getElementById('updateBar');
+        if (bar) bar.style.display = 'none';
+    });
     document.getElementById('results')?.addEventListener('click', handleResultsClick);
 }
 
-function sanitizeFilename(name) {
-    if (!name) return '';
-    return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim();
+function renderWelcomePage() {
+    const resultsDiv = document.getElementById('results');
+    const template = document.getElementById('welcomeTemplate');
+    if (!resultsDiv || !template) return;
+
+    resultsDiv.replaceChildren(template.content.cloneNode(true));
+    resultsDiv.setAttribute('aria-label', 'PBOC 說明');
 }
 
 async function exportCard(card) {
     if (!card) return;
+    const sanitize = (s) => s ? s.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim() : '';
     const btn = card.querySelector('.export-btn');
     const originalText = btn.innerText;
 
@@ -326,8 +328,8 @@ async function exportCard(card) {
 
         card.classList.remove('exporting');
 
-        const zi = sanitizeFilename(card.dataset.char || 'result-card');
-        const phonetic = sanitizeFilename(card.dataset.phonetic || '');
+        const zi = sanitize(card.dataset.char || 'result-card');
+        const phonetic = sanitize(card.dataset.phonetic || '');
         const filename = phonetic ? `pboc-${zi}-${phonetic}.png` : `pboc-${zi}.png`;
 
         const link = document.createElement('a');
@@ -436,6 +438,7 @@ async function initDictionary() {
 
 // 啟動
 setupEventListeners();
+renderWelcomePage();
 initDictionary();
 
 function loadFromUrl() {
@@ -457,15 +460,11 @@ function loadFromUrl() {
         input.value = '';
         currentQuery = '';
         currentResults = [];
-        document.getElementById('results').replaceChildren();
+        renderWelcomePage();
     }
 }
 
 window.addEventListener('popstate', loadFromUrl);
-
-function handleEnter(e) {
-    if (e.key === 'Enter' && !e.isComposing) searchDict();
-}
 
 function searchExact(value) {
     document.getElementById('searchInput').value = value;
@@ -801,6 +800,7 @@ function searchDict(updateUrl = true) {
     regexErrorDiv.textContent = '';
     if (!query) {
         if (updateUrl) updateSearchUrl();
+        renderWelcomePage();
         return;
     }
 

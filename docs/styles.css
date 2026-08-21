@@ -32,13 +32,15 @@
         --shadow-card:         0 1px 0 rgba(255, 255, 255, 0.04);
         --shadow-card-hover:   0 4px 16px rgba(0, 0, 0, 0.4);
     }
-    input[type="text"] { color: var(--ink); }
     button:disabled { background: var(--ink-soft); }
     .annotation-link { color: #8cb4ff; border-bottom-color: rgba(140, 180, 255, 0.4); }
     .annotation-link:hover { color: var(--gold); border-bottom-color: var(--gold); }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+input[type="text"], button, .radio-btn, #updateBar .btn-reload, #updateBar .btn-dismiss { font-family: inherit; }
+.phonetic-value, .pinyin-value, .sense-num { font-family: "Noto Sans Mono", monospace; }
+.derived-value { font-family: "Noto Sans Mono", "Noto Serif TC", monospace; }
 
 body {
     font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
@@ -166,7 +168,6 @@ input[type="text"] {
     flex: 1;
     padding: 12px 12px;
     font-size: 15px;
-    font-family: inherit;
     border: none;
     background: transparent;
     outline: none;
@@ -178,7 +179,6 @@ input[type="text"]::placeholder { color: var(--ink-faint); }
 button {
     padding: 12px 20px;
     font-size: 14px;
-    font-family: inherit;
     letter-spacing: 0.1em;
     cursor: pointer;
     background: var(--indigo);
@@ -194,12 +194,6 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
 button:focus-visible, a:focus-visible, select:focus-visible {
     outline: 2px solid var(--vermilion);
     outline-offset: 2px;
-}
-
-#searchBtn {
-    border-radius: var(--r-xs);
-    font-weight: 600;
-    letter-spacing: 0.12em;
 }
 
 .search-options {
@@ -233,7 +227,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     background: transparent;
     letter-spacing: 0.04em;
     white-space: nowrap;
-    font-family: inherit;
 }
 .radio-label:hover .radio-btn {
     color: var(--indigo);
@@ -269,7 +262,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 #updateBar .btn-reload {
     padding: 4px 14px;
     font-size: 12px;
-    font-family: inherit;
     background: var(--indigo);
     color: #fff;
     border: none;
@@ -282,7 +274,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 #updateBar .btn-dismiss {
     padding: 4px 10px;
     font-size: 12px;
-    font-family: inherit;
     background: transparent;
     color: var(--indigo);
     border: 1px solid rgba(44, 62, 107, 0.3);
@@ -393,14 +384,12 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     flex-shrink: 0;
 }
 .phonetic-value {
-    font-family: "Noto Sans Mono", monospace;
     font-size: 18px;
     color: var(--banner-gold);
     letter-spacing: 0.05em;
     word-break: break-all;
 }
 .pinyin-value {
-    font-family: "Noto Sans Mono", monospace;
     font-size: 14px;
     color: rgba(255, 255, 255, 0.72);
     letter-spacing: 0.05em;
@@ -435,7 +424,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 .derived-value {
     display: inline-block;
     flex: 0 0 auto;
-    font-family: "Noto Sans Mono", "Noto Serif TC", monospace;
     font-size: 13px;
     color: rgba(255, 255, 255, 0.86);
     white-space: nowrap;
@@ -473,21 +461,22 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     border: 1px solid rgba(255, 255, 255, 0.2);
     white-space: nowrap;
 }
+.xiesheng-tag, .rhyme-tag {
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.xiesheng-tag:hover, .rhyme-tag:hover { transform: translateY(-1px); }
 .xiesheng-tag {
     background: rgba(240, 194, 127, 0.18);
     color: var(--banner-gold);
     border-color: rgba(240, 194, 127, 0.35);
-    cursor: pointer;
-    transition: background 0.2s, transform 0.15s;
 }
-.xiesheng-tag:hover { background: rgba(240, 194, 127, 0.35); transform: translateY(-1px); }
+.xiesheng-tag:hover { background: rgba(240, 194, 127, 0.35); }
 .xiesheng-tag:focus-visible { outline-color: var(--banner-gold); }
 .rhyme-tag {
-    cursor: pointer;
     text-decoration: none;
-    transition: background 0.2s, transform 0.15s;
 }
-.rhyme-tag:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+.rhyme-tag:hover { background: rgba(255, 255, 255, 0.18); }
 .rhyme-tag:focus-visible { outline-color: rgba(255, 255, 255, 0.8); }
 .card-body { padding: 18px 24px; }
 .section { margin-bottom: 16px; }
@@ -534,7 +523,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     border-radius: var(--r-xs);
     font-size: 11px;
     font-weight: 700;
-    font-family: "Noto Sans Mono", monospace;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -588,6 +576,126 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     opacity: 0.8;
 }
 
+.welcome-page {
+    padding: 4px 0 32px;
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 2;
+}
+.welcome-intro {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+.welcome-page h2,
+.welcome-page h3 {
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+}
+.welcome-page h2 {
+    margin-bottom: 10px;
+    font-size: 24px;
+    line-height: 1.5;
+}
+.welcome-section {
+    margin-bottom: 26px;
+}
+.welcome-section h3 {
+    margin-bottom: 10px;
+    font-size: 17px;
+    line-height: 1.6;
+}
+.welcome-page p + p {
+    margin-top: 12px;
+}
+.welcome-page a {
+    color: var(--indigo);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+.welcome-page a:hover {
+    color: var(--vermilion);
+}
+.welcome-page code {
+    padding: 0 2px;
+    color: var(--indigo);
+    font-family: "Noto Sans Mono", monospace;
+    font-size: 0.92em;
+}
+.welcome-list {
+    padding-left: 1.45em;
+}
+.welcome-list li {
+    padding-left: 0.2em;
+}
+.welcome-list li + li {
+    margin-top: 6px;
+}
+.welcome-list strong,
+.welcome-definitions dt,
+.source-scope dt {
+    color: var(--ink);
+    font-weight: 600;
+}
+.welcome-details {
+    border-top: 1px solid var(--border-light);
+}
+.welcome-details:last-child {
+    border-bottom: 1px solid var(--border-light);
+}
+.welcome-details summary {
+    padding: 9px 0;
+    color: var(--ink);
+    cursor: pointer;
+    font-weight: 600;
+    line-height: 1.7;
+}
+.welcome-details > p,
+.welcome-details > dl {
+    margin-bottom: 14px;
+}
+.welcome-definitions {
+    margin: 0;
+    border-top: 1px solid var(--border-light);
+}
+.welcome-definitions > div {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-light);
+}
+.welcome-definitions dt {
+    display: inline;
+}
+.welcome-definitions dt::after {
+    content: "：";
+}
+.welcome-definitions dd {
+    display: inline;
+    margin: 0;
+}
+.welcome-note {
+    margin-top: 14px;
+    padding-left: 11px;
+    border-left: 2px solid var(--gold);
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.9;
+}
+.source-scope {
+    margin: 0;
+    border-top: 1px solid var(--border-light);
+}
+.source-scope > div {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border-light);
+}
+.source-scope dd {
+    margin: 0;
+}
+
 .pagination-bar {
     display: flex;
     align-items: center;
@@ -605,7 +713,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     flex-wrap: wrap;
 }
 .pagination-bar.bottom { margin: 8px 0 0; }
-.pagination-summary { color: var(--ink-soft); }
 .pagination-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pagination-controls button,
 .pagination-size select {
@@ -713,22 +820,21 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     body { padding: 20px 14px; }
     .page-header { margin-bottom: 26px; padding-bottom: 16px; }
     .page-header::after { width: min(100%, 280px); margin-top: 17px; }
-    .project-english-line { margin-top: 5px; font-size: 11px; }
-    .project-chinese-line { font-size: 25px; }
-    .project-acronym { gap: 8px; margin-bottom: 8px; font-size: 11px; }
+    .project-english-line { margin-top: 5px; font-size: clamp(10px, 2.8vw, 11px); }
+    .project-chinese-line { font-size: clamp(22px, 5.5vw, 25px); }
+    .project-acronym { gap: 8px; margin-bottom: 8px; font-size: clamp(10px, 2.8vw, 11px); }
     .project-acronym::before, .project-acronym::after { width: 28px; }
     .search-container { padding: 8px 0 12px; }
     .search-box { border-radius: var(--r-xs); }
     input[type="text"] { padding: 10px 10px; font-size: 14px; }
     button { padding: 10px 14px; font-size: 13px; }
-    #searchBtn { padding: 10px 14px; }
     .search-options { gap: 1px; margin-top: 10px; }
-    .radio-btn { padding: 4px 12px; font-size: 12px; }
+    .radio-btn { padding: clamp(3px, 1vw, 4px) clamp(10px, 3vw, 12px); font-size: clamp(11px, 3vw, 12px); }
 
     .char-banner { padding: 14px 18px; gap: 14px; }
-    .char-glyph { font-size: 52px; }
-    .phonetic-value { font-size: 16px; }
-    .pinyin-value { font-size: 13px; }
+    .char-glyph { font-size: clamp(42px, 11vw, 52px); }
+    .phonetic-value { font-size: clamp(14px, 4vw, 16px); }
+    .pinyin-value { font-size: clamp(12px, 3.2vw, 13px); }
     .derived-phonology { gap: 4px 12px; }
     .derived-value { font-size: 12px; }
     .export-btn { margin-left: 0; margin-top: 8px; width: 100%; text-align: center; }
@@ -739,20 +845,16 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     .text-block { padding: 8px 10px; font-size: 12.5px; }
 
     .no-result { padding: 40px 0 32px; font-size: 14px; }
+    .welcome-page { padding-bottom: 24px; font-size: 13px; line-height: 1.9; }
+    .welcome-intro { margin-bottom: 24px; padding-bottom: 17px; }
+    .welcome-page h2 { font-size: 22px; }
+    .welcome-section { margin-bottom: 23px; }
+    .welcome-section h3 { font-size: 16px; }
+    .welcome-details summary { padding: 8px 0; }
+    .source-scope > div { grid-template-columns: 76px minmax(0, 1fr); gap: 10px; }
     .pagination-bar { align-items: stretch; flex-direction: column; gap: 10px; padding: 10px 12px; }
     .pagination-controls { justify-content: center; }
     .pagination-controls button { padding: 5px 8px; }
     .pagination-size { justify-content: center; }
     #updateBar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 8px 12px; }
-}
-
-@media (max-width: 380px) {
-    .project-english-line { font-size: 10px; }
-    .project-chinese-line { font-size: 22px; }
-    .project-acronym { font-size: 10px; }
-    .char-glyph { font-size: 42px; }
-    .phonetic-value { font-size: 14px; }
-    .pinyin-value { font-size: 12px; }
-    .search-options { gap: 1px; }
-    .radio-btn { padding: 3px 10px; font-size: 11px; }
 }

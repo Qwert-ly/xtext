@@ -80,7 +80,107 @@
     <div id="extraStatus" role="status" aria-live="polite"></div>
     <div id="regexError" role="alert" aria-live="assertive"></div>
 
-    <main id="results" aria-live="polite" aria-label="查詢結果"></main>
+    <main id="results" aria-live="polite" aria-label="PBOC 說明"></main>
+
+    <template id="welcomeTemplate">
+        <article class="welcome-page" aria-labelledby="welcomeTitle">
+            <header class="welcome-intro">
+                <h2 id="welcomeTitle">說明</h2>
+                <p>本表在Baxter、Sagart（2014基礎上，吸收<a href="https://www.zhihu.com/question/611384252/answer/3127239134" target="_blank" rel="noopener noreferrer">羊系</a>、<a href="https://www.zhihu.com/question/334162615/answer/744255554" target="_blank" rel="noopener noreferrer">小舌音聲母組</a>與<a href="https://zhuanlan.zhihu.com/p/679828961" target="_blank" rel="noopener noreferrer">清響音</a>等新進展，並結合押韻與假借有若干具體改動。本網站提供漢字、拼音、擬音、諧聲域與釋義檢索。</p>
+            </header>
+
+            <section class="welcome-section" aria-labelledby="evidenceTitle">
+                <h3 id="evidenceTitle">材料</h3>
+                <p>四類材料按優先級排序：</p>
+                <ol class="welcome-list">
+                    <li><strong>押韻與假借。</strong>作爲母語者給出的一手材料，具有無可替代的第一性地位。</li>
+                    <li><strong>中古音與傳世諧聲。</strong>是普遍的，但也是晚出的，只能作爲零假設，在①本身不足時格式化地填入。擺脫反映中古以來材料帶來的偏見才能更客觀地看待反映上古的材料。</li>
+                    <li><strong>現代方言與域外對音。</strong>不能作爲構擬新音類的論據，但可以作爲歸類參考。</li>
+                    <li><strong>漢藏對音。</strong>各藏緬語的歷史音變和既有構擬亟待評估，使用它們將是危險的。</li>
+                </ol>
+            </section>
+
+            <section class="welcome-section" aria-labelledby="systemTitle">
+                <h3 id="systemTitle">音系</h3>
+                <details class="welcome-details" open>
+                    <summary>聲母概況</summary>
+                    <p>只有<code>s-</code>、<code>m-</code>兩種前綴，只在近音（<code>l-</code>、<code>j-</code>）前可以觀察到。端紐有演變爲中古書母的，寫作<code>st-</code>。<a href="zhuanlan.zhihu.com/p/706013675">閩語在其他紐也反映（不同的）前綴</a>（另在注釋中標出），但其不參與古典漢語的音系構擬，因此不予考慮。<code>C.r-</code>表示用非R系字符書寫，或與非中古來母詞有明顯同源關係的來母詞，其與通過比較法可以從方言確定的“特殊來母”關係待考。非三等標記爲便於顯示、從舊等原因，寫作<code>ˤ</code>，實際應爲舌根後縮（Retracted Tongue Root, RTR），即<code>◌̙</code>。</p>
+                </details>
+                <details class="welcome-details">
+                    <summary>韻母概況</summary>
+                    <ol class="welcome-list">
+                        <li>之部元音從舊，作<code>ə</code>。實際上應與<code>i</code>、<code>u</code>同爲高元音，即<code>[ɨ]</code>。三等無<code>r</code>的<code>-a(j)</code>韻母在銳音聲母後有進入麻韻者，其平聲部分的轄字在東漢各方言一致（詳見張振通《新視角下的漢代韻部研究》“東漢魚部三等字的分化問題”），應當反映了一個不同於其他<code>-a-</code>的原始音類，但目前尚難賦值，暫記作<code>ia</code>。</li>
+                        <li>歌、豪、乾部韻尾分別寫作<code>-j</code>、<code>-w</code>、<code>-r</code>。</li>
+                        <li>所有韻文及大多數假借、諧聲中，<code>-ps</code>、<code>-ts</code>已經合流、同<code>-t</code>混押，記作<code>-s</code>；<code>-ks</code>與<code>-s</code>已經合流、同<code>-k</code>混押，記作<code>-h</code>。<code>-əs</code>與<code>-əps</code>的押韵、演化皆有不同，諧聲也能分辨，因而留之。具體來說，關中先發生<code>*-əts>-its</code>，之後全體發生<code>*-ts,ps>-s</code>，其中<code>-əps</code>接非近銳音（<code>T, N, TS</code>）時演變爲<code>-us</code>，皆在《詩經》主體創作時間之前。</li>
+                    </ol>
+                </details>
+                <details class="welcome-details">
+                    <summary>聲調概況</summary>
+                    <p>本表認爲，在原則上，爲具體詞構擬聲調應與韻母遵循相同的原則，即以押韻係聯爲主，中古音僅作爲賦值依據。然而押韻相當稀疏、無法單獨支持構擬，因此在實踐中判定聲調（以及聲調異讀分工）的標準應與多音字一致：零假設爲後世讀音忠實反映上古音，遇到不一致的材料再進行討論。</p>
+                </details>
+            </section>
+
+            <section class="welcome-section" aria-labelledby="tablesTitle">
+                <h3 id="tablesTitle"><a href="https://zhuanlan.zhihu.com/p/12987993957">資料表</a></h3>
+                <dl class="welcome-definitions">
+                    <div>
+                        <dt>音節表</dt>
+                        <dd>黑色:平聲，藍色:上聲，紅色:去聲，灰色:入聲。“入聲”所代表的韻尾，具體看左側。</dd>
+                    </div>
+                    <div>
+                        <dt>字典表</dt>
+                        <dd>以字頭（「字-音結合體」，以傳世寫法爲準）爲鍵的表。一行類似字典中的一項，故名。本網站據此表查詢。</dd>
+                    </div>
+                    <div>
+                        <dt>小韻表</dt>
+                        <dd>從音節表導出，以音節爲鍵的表。一行類似中古韻書的一個小韻，故名。純享版。</dd>
+                    </div>
+                </dl>
+                <p class="welcome-note">押韻、字頻數據由程序導出，不能區分多音字之多音。「字频」列實乃「出現該字的段落數」，不是一般的字頻。歸一化字頻:<code>100×(該字字頻／組最高字頻)<sup>0.5</sup></code>，可以調整公式另行計算。</p>
+            </section>
+
+            <section class="welcome-section" aria-labelledby="scopeTitle">
+                <h3 id="scopeTitle">收字標準</h3>
+                <p>傳世文獻原則上收至西漢初年，含輯佚；另收通假語素及逐步整理的出土文獻。考慮到語料性質，對出土文獻的年代要求適當放寬（如放寬到景帝爲止的西漢早期，以容納馬王堆帛書《五十二病方》、天回醫簡等醫學文獻）。</p>
+                <details class="welcome-details">
+                    <summary>傳世文獻（僅作示意）</summary>
+                    <dl class="source-scope">
+                        <div><dt>西周</dt><dd>《詩經》《尚書》；《易》</dd></div>
+                        <div><dt>中原</dt><dd>《論語》《孟子》；《老子》；《春秋》及三傳、《國語》《戰國策》；《墨子》；三禮；《爾雅》</dd></div>
+                        <div><dt>齊</dt><dd>《管子》《晏子春秋》《孫子兵法》《司馬法》；《逸周書》（部分？）；《考工記》</dd></div>
+                        <div><dt>趙、周韓</dt><dd>《荀子》《公孫龍子》；《韓非子》；《穆天子傳》《竹書紀年》；《逸周書》</dd></div>
+                        <div><dt>晉其他</dt><dd>《呂氏春秋》；《申子》《子華子》等</dd></div>
+                        <div><dt>楚、吳越</dt><dd>《莊子》《鶡冠子》《楚辭》；《尉繚子》；《山海經》；《越人歌》</dd></div>
+                        <div><dt>關中</dt><dd>《商君書》；《素書》</dd></div>
+                        <div><dt>不明</dt><dd>《尸子》《范子計然》《孝經》；《歸藏》等</dd></div>
+                    </dl>
+                    <p>此外，還含李斯《諫逐客書》、樂毅《答燕惠王書》、《逸禮·王度記》等散篇。通假語素主要參考白於藍《簡帛古書通假字大系》（2017）。</p>
+                </details>
+            </section>
+
+            <section class="welcome-section" aria-labelledby="conventionsTitle">
+                <h3 id="conventionsTitle">字典表凡例</h3>
+                <p>主要參考《漢語大詞典》《漢語大字典》，以數字列出各義項，義項下分點用①②③……。試圖兼顧簡明與全面，因此若有明顯的引申則酌情合併。</p>
+                <p>語料依出土文獻、後世語料有所補充，暫時考慮收錄《史記》（西漢中期）及以前傳世文獻的語素引申義。直引語料用西文引號“”表示，計入字頻（歸一化）統計。注疏與後世語料用直角引號「」表示。</p>
+                <p>依據現已明確的文本來源問題，對篇名有適當調整。例如，《考工記》是戰國齊地作品，漢人爲填補已佚的《周禮·冬官司空》將其補入，來源不同，故直接寫作《考工記·某》；《莊子》內篇與外、雜篇押韻習慣不同（前者有真耕通押），詞彙亦有別，故留作《莊子·內·某》以俟研究；《詩》《書》《楚辭》是彙編，只留作各部分與篇名，如《邶風·某》《周書·某》《九歌·某》。《左傳》後四公篇幅遠多於前八公，語法亦有別，然仍不清楚具體來源，故不作區分；《禮記》《大戴禮記》是戰國至漢初儒家文獻彙編，來源複雜，如海昏侯簡《禮記》類文獻形製、書體各異，有一部分（《中庸》《祭義》等）同《論語》相混雜，然也無法針對二《禮》給出更明確的來源，故不分，諸如此類。</p>
+                <p>出土文獻默認以後世通行字寫出寬式釋文，必要時以“原作某”、或括注釋文、或在注釋欄給出原始字形。《管子》《鶡冠子》等傳世文獻多有錯訛、增窜、脫漏，以<code>&lt;&gt;</code>表示訛字當本作某，<code>()</code>表示當讀作某，<code>{}</code>表示當補，<code>【】</code>表示當刪。</p>
+                <p><code>【X】</code>表示“訓作／意爲 X”，<code>{X}</code>表示中古通行寫法爲X的詞彙或標音，或標音（直音爲X或反切切語），<code>“X”</code>表示X這個字。用例：《管子·地員》“位土”之“位”即“湴”字之壞，“湴”字從“竝(替)”聲，讀作{埿}，訓爲【汙泥】。</p>
+                <details class="welcome-details">
+                    <summary>《說文》</summary>
+                    <p>《說文》的訓釋與字形說解含有大量漢儒重構成分，僅供參考。一般省略「從某，某聲」的字形說解部分，認爲能反映漢儒文字觀的，則酌情保留。</p>
+                </details>
+                <details class="welcome-details">
+                    <summary>《蒼頡篇》</summary>
+                    <p>《蒼頡篇》有蒙書、詁書兩種。</p>
+                    <ol class="welcome-list">
+                        <li>蒙書《蒼頡篇》是李斯《蒼頡篇》、趙高《爰歴篇》、胡毋敬《博學篇》合稱（55章），久佚，可從近來出土的簡牘復原大部，參看<a href="https://www.fdgwz.org.cn/Web/Show/11308">甘木《新編〈蒼頡篇〉釋文》</a><a href="https://www.fdgwz.org.cn/Web/Show/11307">《簡牘〈蒼頡篇〉校讀叢札》</a>及中引文。東漢以來與揚雄《訓纂篇》、賈魴《滂喜篇》各34章又合稱“三蒼”，如郭璞《三蒼解詁》等。</li>
+                        <li>詁書《蒼頡篇》散見於先宋注疏，現多稱作“古注本《蒼頡篇》”，是宣帝時爲緩解“《蒼頡》多古字，俗師失其讀”而依蒙書《蒼頡篇》逐字編著的杜林《蒼頡訓詁》。揚雄《訓纂篇》34章以蒙書《蒼頡篇》格式收集蒙書《蒼頡篇》未收字，揚雄《蒼頡訓纂》則是對蒙書《蒼頡篇》+《訓纂篇》整體所作的詁書，魏晉以來被吸收進古注本《蒼頡篇》。約三國後又有後人增補反切（如《玉篇》以來“詯<䛛>”字訓已佚，字韻書徑以反切“胡市<內>”爲訓）。《說文》訓釋與古注本《蒼頡篇》相似者不少，說解字形有引杜林、揚雄說者。古注本《蒼頡篇》後與郭璞《三蒼注》等書在內容上有所混淆，王國維《重輯蒼頡篇》等即不作區分。以上參看苗壯《古注本〈蒼頡篇〉考》。</li>
+                        <li>字典表凡例：《蒼頡》《爰歴》《博學》皆取篇首二字爲題，可從蒙書《蒼頡篇》復原本（主要參考<a href="https://www.fdgwz.org.cn/Web/Show/11308">甘木《新編〈蒼頡篇〉釋文》</a>）輕易分出，表中將徑直寫明。例如“貤”字：《爰歷篇》：“爰歷次貤，繼續前圖。”詁書《蒼頡篇》盡量注明出處，以「」表示。至於《說文》引杜林、揚雄說，因其主要爲說解字形，故不另列明，只隨《說文》正文寫出。</li>
+                    </ol>
+                </details>
+            </section>
+        </article>
+    </template>
 
     <script src="script.js" defer></script>
 </body>
