@@ -220,7 +220,7 @@ async function fetchGzJson(url, progressCallback) {
             const cache = await caches.open(DICT_CACHE);
             await cache.put(url, respForCache);
         }
-        return { data, fromCache: false };
+        return { data, fromCache: false, updatedAt: responseUpdatedAt(resp) };
     };
 
     if (!('caches' in window)) return fetchFromNetwork();
@@ -230,7 +230,7 @@ async function fetchGzJson(url, progressCallback) {
 
     if (cachedResp) {
         const data = await streamAndParseJson(cachedResp.clone(), progressCallback, { compressed: !responseBodyIsAlreadyDecoded(cachedResp) });
-        return { data, fromCache: true };
+        return { data, fromCache: true, updatedAt: responseUpdatedAt(cachedResp) };
     }
 
     return fetchFromNetwork();
@@ -289,6 +289,31 @@ function setupEventListeners() {
         if (bar) bar.style.display = 'none';
     });
     document.getElementById('results')?.addEventListener('click', handleResultsClick);
+}
+
+function responseUpdatedAt(response) {
+    const lastModified = response?.headers.get('last-modified');
+    if (!lastModified) return null;
+    const timestamp = Date.parse(lastModified);
+    return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function updateDataUpdatedAt(timestamps) {
+    const element = document.getElementById('dataUpdatedAt');
+    if (!element) return;
+
+    const latest = timestamps.filter(timestamp => Number.isFinite(timestamp)).reduce(
+        (current, timestamp) => Math.max(current, timestamp),
+        0
+    );
+    if (!latest) {
+        element.textContent = '資料最後更新：無法取得';
+        return;
+    }
+
+    element.textContent = `資料最後更新：${new Intl.DateTimeFormat(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'
+    }).format(new Date(latest))}`;
 }
 
 function renderWelcomePage() {
@@ -359,16 +384,19 @@ async function initDictionary() {
     const btn    = document.getElementById('searchBtn');
     const status = document.getElementById('extraStatus');
     let baseFromCache = false;
+    let baseUpdatedAt = null;
 
     try {
         btn.dataset.action = 'loading';
         btn.disabled = true;
         btn.textContent = '加載中...';
-        const { data: baseData, fromCache } = await fetchGzJson('base.json.gz', (loaded, total) => {
+        const { data: baseData, fromCache, updatedAt } = await fetchGzJson('base.json.gz', (loaded, total) => {
             const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
             input.placeholder = `加載基礎字庫... ${pct}`;
         });
         baseFromCache = fromCache;
+        baseUpdatedAt = updatedAt;
+        updateDataUpdatedAt([baseUpdatedAt]);
         dictData = baseData;
         buildBaseIndexes();
         input.placeholder = `已加載${dictData.length}條目—請輸入關鍵字`;
@@ -380,6 +408,7 @@ async function initDictionary() {
         loadFromUrl();
     } catch (error) {
         console.error('基礎字典加載錯誤:', error);
+        updateDataUpdatedAt([]);
         input.placeholder = '加載字典失敗，請檢查網絡';
         btn.textContent = '重試';
         btn.dataset.action = 'retry';
@@ -391,10 +420,12 @@ async function initDictionary() {
     try {
         status.style.display = 'block';
         status.style.color = 'var(--gold)';
-        const { data: extraData, fromCache: extraFromCache } = await fetchGzJson('extra.json.gz', (loaded, total) => {
+        const { data: extraData, fromCache: extraFromCache, updatedAt: extraUpdatedAt } = await fetchGzJson('extra.json.gz', (loaded, total) => {
             const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
             status.innerText = `獲取釋義與注釋... ${pct}`;
         });
+
+        updateDataUpdatedAt([baseUpdatedAt, extraUpdatedAt]);
 
         if (baseFromCache || extraFromCache) scheduleDictionaryCacheRefresh();
         if (dictData.length === extraData.length) {
@@ -429,6 +460,7 @@ async function initDictionary() {
         if (input.value.trim()) searchDict(false);
     } catch (error) {
         console.error('擴充字典加載錯誤:', error);
+        updateDataUpdatedAt([baseUpdatedAt]);
         status.innerText = '釋義加載失敗，目前僅提供基礎查詢';
         status.style.color = 'var(--vermilion)';
     }
@@ -907,13 +939,20 @@ function searchDict(updateUrl = true) {
     renderPaginatedResults(updateUrl);
 }
 
-if ('serviceWorker' in navigator) {
+const isLocalDevelopment = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+
+if ('serviceWorker' in navigator && !isLocalDevelopment) {
   window.addEventListener('load', () => {
     let hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (hadController) showUpdateNotification();
-        hadController = true;
+      hadController = true;
     });
   });
+} else if ('serviceWorker' in navigator && isLocalDevelopment) {
+  // Live Server 不需要離線快取；清除舊註冊，避免舊版 script.js 被 Service Worker 提供。
+  navigator.serviceWorker.getRegistrations()
+    .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+    .catch(() => {});
 }

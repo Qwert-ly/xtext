@@ -131,6 +131,21 @@ body {
     color: var(--title-accent);
 }
 
+.site-footer {
+    margin-top: 36px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+}
+
+.data-updated-at {
+    margin: 0;
+    color: var(--ink-faint);
+    font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+}
+
 .search-container {
     position: sticky;
     top: env(safe-area-inset-top, 0);
@@ -849,6 +864,7 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     .welcome-intro { margin-bottom: 24px; padding-bottom: 17px; }
     .welcome-page h2 { font-size: 22px; }
     .welcome-section { margin-bottom: 23px; }
+    .site-footer { margin-top: 24px; padding-top: 14px; }
     .welcome-section h3 { font-size: 16px; }
     .welcome-details summary { padding: 8px 0; }
     .source-scope > div { grid-template-columns: 76px minmax(0, 1fr); gap: 10px; }
