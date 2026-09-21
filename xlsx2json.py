@@ -12,7 +12,7 @@ def parse_def(text):
     e = 1
     found_first = False
 
-    end = set('。！？”」》】；： \n\t\r　')
+    end = set('。！!？?；;： \n\t\r　”"’\'」』》〉】〕］]｝}）)')
 
     for n in nums:
         val = int(n.group())
@@ -119,9 +119,7 @@ with open('上古汉语音节表.json', 'w', encoding='utf-8') as f:
     json.dump(cleaned_records, f, ensure_ascii=False, separators=(',', ':'))
 
 key_map = {
-    "字": "z", "音": "y", "拼音": "p", "諧聲域": "a", "見詩經韻": "s", "見戰國韻": "q",
-    "推導音韻地位": "c", "聲首": "m",
-    "釋義": "d", "注釋": "n"
+    "字": "z", "音": "y", "拼音": "p", "諧聲域": "a", "見詩經韻": "s", "見戰國韻": "q", "推導音韻地位": "c", "聲首": "m", "釋義": "d", "注釋": "n"
 }
 
 base_records = []

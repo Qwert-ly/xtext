@@ -66,6 +66,10 @@
                 <input type="radio" name="searchMode" value="meaning" aria-label="釋義反查模式：從釋義文字反向查詢">
                 <span class="radio-btn">釋義反查</span>
             </label>
+            <label class="radio-label">
+                <input type="radio" name="searchMode" value="batch" aria-label="批量標音模式：輸入整段古文，一次返回每個字的擬音">
+                <span class="radio-btn">批量標音</span>
+            </label>
         </div>
     </section>
 
@@ -79,6 +83,8 @@
 
     <div id="extraStatus" role="status" aria-live="polite"></div>
     <div id="regexError" role="alert" aria-live="assertive"></div>
+
+    <section id="searchHistory" aria-label="搜索歷史"></section>
 
     <main id="results" aria-live="polite" aria-label="PBOC 說明"></main>
 
@@ -186,6 +192,11 @@
         <p id="dataUpdatedAt" class="data-updated-at" aria-live="polite">資料最後更新：讀取中…</p>
     </footer>
 
-    <script src="script.js?v=20260908" defer></script>
+    <button id="backToTop" type="button" aria-label="回到搜索框" title="回到搜索框">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 12V4M4 7l4-4 4 4"/></svg>
+        <span>搜索框</span>
+    </button>
+
+    <script src="script.js" defer></script>
 </body>
 </html>
