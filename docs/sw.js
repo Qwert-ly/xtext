@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'pboc';
-const SHELL_CACHE = `${CACHE_PREFIX}-shell-v2`;
-const STATIC_CACHE = `${CACHE_PREFIX}-static-v8`;
+const SHELL_CACHE = `${CACHE_PREFIX}-shell-v3`;
+const STATIC_CACHE = `${CACHE_PREFIX}-static-v9`;
 const DICT_CACHE_PREFIX = `${CACHE_PREFIX}-dict`;
 
 const scopeUrl = new URL(self.registration.scope);
@@ -20,22 +20,32 @@ const EXTERNAL_CACHE_HOSTS = new Set([
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'cdnjs.cloudflare.com',
+  'cdn.jsdelivr.net',
 ]);
 
 async function putIfCacheable(cacheName, request, response) {
   if (response && (response.ok || response.type === 'opaque')) {
-    const cache = await caches.open(cacheName);
-    await cache.put(request, response.clone());
+    try {
+      const cache = await caches.open(cacheName);
+      await cache.put(request, response.clone());
+    } catch (error) {
+      console.warn('無法保存頁面快取:', error);
+    }
   }
   return response;
 }
 
-async function staleWhileRevalidate(event) {
+async function staleWhileRevalidate(event, cacheName = STATIC_CACHE) {
   const { request } = event;
-  const cache = await caches.open(STATIC_CACHE);
-  const cached = await cache.match(request);
-  const networkPromise = fetch(request)
-    .then(response => putIfCacheable(STATIC_CACHE, request, response))
+  const isNavigation = request.mode === 'navigate';
+  const cacheKey = isNavigation ? `${BASE_PATH}index.html` : request;
+  let cached;
+  try {
+    const cache = await caches.open(cacheName);
+    cached = await cache.match(cacheKey);
+  } catch (_error) {}
+  const networkPromise = fetch(request, isNavigation ? { cache: 'no-cache' } : undefined)
+    .then(response => putIfCacheable(cacheName, cacheKey, response))
     .catch(() => null);
 
   if (cached) {
@@ -45,16 +55,6 @@ async function staleWhileRevalidate(event) {
 
   const fresh = await networkPromise;
   return fresh || Response.error();
-}
-
-async function networkFirstShell(request) {
-  try {
-    const response = await fetch(request, { cache: 'no-cache' });
-    await putIfCacheable(SHELL_CACHE, request, response);
-    return response;
-  } catch (_error) {
-    return (await caches.match(request)) || (await caches.match(`${BASE_PATH}index.html`));
-  }
 }
 
 async function cacheFirst(request) {
@@ -84,7 +84,7 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(key => !keep.has(key) && !key.startsWith(DICT_CACHE_PREFIX))
+          .filter(key => key.startsWith(`${CACHE_PREFIX}-`) && !keep.has(key) && !key.startsWith(DICT_CACHE_PREFIX))
           .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
@@ -97,10 +97,10 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
-  if (url.pathname.endsWith('.json.gz')) return;
+  if (url.pathname.endsWith('.json.gz') || url.pathname === `${BASE_PATH}data-version.json`) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstShell(request));
+    event.respondWith(staleWhileRevalidate(event, SHELL_CACHE));
     return;
   }
 

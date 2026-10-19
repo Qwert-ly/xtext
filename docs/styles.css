@@ -1,5 +1,6 @@
 :root {
     color-scheme: light dark;
+    --font-han: "Shanggu Serif TC", "Noto Serif TC", "PingFang TC", "STSong", serif;
     --ink: #1c1a17;          --ink-soft: #4a4540;      --ink-faint: #8a837a;
     --paper: #f7f3ee;        --paper-card: #fdfaf6;    --paper-inset: #ebe5da;
     --vermilion: #c0392b;    --vermilion-light: #f5e6e4;
@@ -40,10 +41,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 input[type="text"], button, select, .radio-btn { font-family: inherit; }
 .phonetic-value, .pinyin-value, .sense-num { font-family: "Noto Sans Mono", monospace; }
-.derived-value { font-family: "Noto Sans Mono", "Noto Serif TC", monospace; }
+.derived-value { font-family: "Noto Sans Mono", var(--font-han); }
 
 body {
-    font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
+    font-family: var(--font-han);
     background-color: var(--paper);
     color: var(--ink);
     max-width: 820px;
@@ -84,7 +85,7 @@ body {
 
 .project-chinese-line {
     color: var(--ink);
-    font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
+    font-family: var(--font-han);
     font-size: 32px;
     font-weight: 500;
     letter-spacing: 0.12em;
@@ -100,7 +101,7 @@ body {
     order: -1;
     margin-bottom: 9px;
     color: var(--title-accent);
-    font-family: Georgia, "Times New Roman", "Noto Serif TC", serif;
+    font-family: Georgia, "Times New Roman", var(--font-han);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.22em;
@@ -120,7 +121,7 @@ body {
     order: 1;
     margin-top: 7px;
     color: var(--title-muted);
-    font-family: Georgia, "Times New Roman", "Noto Serif TC", serif;
+    font-family: Georgia, "Times New Roman", var(--font-han);
     font-size: 13px;
     font-weight: 400;
     letter-spacing: 0.09em;
@@ -141,7 +142,7 @@ body {
 .data-updated-at {
     margin: 0;
     color: var(--ink-faint);
-    font-family: "Noto Serif TC", "PingFang TC", "STSong", serif;
+    font-family: var(--font-han);
     font-size: 12px;
     letter-spacing: 0.04em;
 }

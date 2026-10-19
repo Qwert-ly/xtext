@@ -1,5 +1,6 @@
 import pandas as pd
 import re, json, gzip
+from datetime import datetime, timezone
 
 
 def parse_def(text):
@@ -145,3 +146,9 @@ with gzip.open('base.json.gz', 'wb', compresslevel=9) as f_out:
 
 with gzip.open('extra.json.gz', 'wb', compresslevel=9) as f_out:
     f_out.write(json.dumps(extra_records, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
+
+with ('data-version.json').open('w', encoding='utf-8') as f_out:
+    json.dump({
+        'version': datetime.now().strftime('%Y-%m-%d'),
+        'updatedAt': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+    }, f_out, ensure_ascii=False, separators=(',', ':'))

@@ -7,6 +7,9 @@ const domainExactIndex = new Map();
 const initialExactIndex = new Map();
 const DICT_CACHE = 'pboc-dict-v1';
 const DICT_URLS = ['base.json.gz', 'extra.json.gz'];
+const DICT_VERSION_URL = 'data-version.json';
+const DICT_RELEASE_PREFIX = `${DICT_CACHE}-release-`;
+const DICT_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 const SEARCH_MODES = new Set(['default', 'exact', 'regex', 'meaning', 'batch']);
 const CJK_RE = /[\u{3400}-\u{4DBF}\u{4E00}-\u{9FFF}\u{F900}-\u{FAFF}\u{20000}-\u{323AF}]/u;
 const CJK_TOKEN_RE = /[\u{3400}-\u{4DBF}\u{4E00}-\u{9FFF}\u{F900}-\u{FAFF}\u{20000}-\u{323AF}]+|[^\u{3400}-\u{4DBF}\u{4E00}-\u{9FFF}\u{F900}-\u{FAFF}\u{20000}-\u{323AF}]+/gu;
@@ -14,7 +17,6 @@ const BATCH_MAX_LENGTH = 5000;
 const IMAGE_EXPORT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
 const IMAGE_EXPORT_TIMEOUT = 15000;
 const supportsGzipStreams = 'DecompressionStream' in window;
-let _updatedFiles = false;
 let dictionaryLoading = false;
 
 // 全域快捷鍵：按下 / 快速 focus 搜尋框
@@ -136,119 +138,191 @@ async function streamAndParseJson(response, progressCallback, { compressed = fal
     return JSON.parse(await new Response(stream).text());
 }
 
-function sameCachedPayload(cachedResp, netResp) {
-    const etag = cachedResp.headers.get('ETag');
-    const newEtag = netResp.headers.get('ETag');
-    if (etag && newEtag) return etag === newEtag;
+function validateDictionaryPair(base, extra) {
+    if (!Array.isArray(base) || !Array.isArray(extra) || !base.length || base.length !== extra.length) {
+        throw new Error('基礎字庫與擴展字庫不完整或條目數不一致');
+    }
+}
 
-    const lastMod = cachedResp.headers.get('Last-Modified');
-    const newLastMod = netResp.headers.get('Last-Modified');
-    if (lastMod && newLastMod) return lastMod === newLastMod;
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timeout);
+    }
+}
 
-    if (etag || newEtag || lastMod || newLastMod) return false;
+async function fetchDictionaryVersion() {
+    const response = await fetchWithTimeout(DICT_VERSION_URL, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`字庫版本檢查失敗：${response.status}`);
+    const release = await response.json();
+    if (!release || typeof release.version !== 'string' || !/^[\w.-]{1,80}$/.test(release.version) ||
+        !Number.isFinite(Date.parse(release.updatedAt))) {
+        throw new Error('字庫版本資訊無效');
+    }
+    return { version: release.version, updatedAt: release.updatedAt };
+}
 
-    const oldLen = cachedResp.headers.get('Content-Length');
-    const newLen = netResp.headers.get('Content-Length');
-    return !!oldLen && !!newLen && oldLen === newLen;
+async function readCachedDictionarySource() {
+    if (!('caches' in window)) return null;
+    try {
+        const stateCache = await caches.open(DICT_CACHE);
+        const stateResponse = await stateCache.match(DICT_VERSION_URL);
+        let state = null;
+        try { state = stateResponse ? await stateResponse.json() : null; } catch (_error) {}
+        const candidates = [];
+        if (state && typeof state.version === 'string' && typeof state.cacheName === 'string' &&
+            (state.cacheName === DICT_CACHE || state.cacheName.startsWith(DICT_RELEASE_PREFIX))) {
+            candidates.push(state);
+        }
+        // 舊緩存仍可直接使用；只在首次遷移時檢查檔案標頭
+        if (state?.cacheName !== DICT_CACHE) candidates.push({ cacheName: DICT_CACHE });
+
+        for (const candidate of candidates) {
+            try {
+                const cache = await caches.open(candidate.cacheName);
+                const responses = await Promise.all(DICT_URLS.map(url => cache.match(url)));
+                if (responses.some(response => !response)) continue;
+                const data = await Promise.all(responses.map(response => streamAndParseJson(
+                    response.clone(), null, { compressed: !responseBodyIsAlreadyDecoded(response) }
+                )));
+                validateDictionaryPair(...data);
+                return {
+                    ...candidate,
+                    fromCache: true,
+                    responses: new Map(DICT_URLS.map((url, i) => [url, responses[i]])),
+                    data: new Map(DICT_URLS.map((url, i) => [url, data[i]])),
+                };
+            } catch (error) {
+                console.warn('本地字庫無法讀取，將嘗試重新下載:', error);
+            }
+        }
+    } catch (error) {
+        console.warn('瀏覽器無法開啟字庫緩存:', error);
+    }
+    return null;
+}
+
+function createDictionarySource(release) {
+    return {
+        ...release,
+        cacheName: `${DICT_RELEASE_PREFIX}${release.version}`,
+        fromCache: false,
+        responses: new Map(),
+        data: new Map(),
+    };
+}
+
+async function getDictionarySource() {
+    return (await readCachedDictionarySource()) || createDictionarySource(await fetchDictionaryVersion());
+}
+
+async function fetchGzJson(url, progressCallback, source) {
+    let response = source.responses.get(url);
+    if (!response) {
+        // 版本號只在發佈字庫時變動，頁面、樣式更新不會使字庫重新下載。
+        const requestUrl = new URL(url, document.baseURI);
+        requestUrl.searchParams.set('v', source.version);
+        response = await fetch(requestUrl.href);
+        if (!response.ok) throw new Error(`請求${url}失敗：${response.status}`);
+        source.responses.set(url, response.clone());
+        source.data.set(url, await streamAndParseJson(response, progressCallback, {
+            compressed: !responseBodyIsAlreadyDecoded(response),
+        }));
+    }
+    return {
+        data: source.data.get(url),
+        fromCache: source.fromCache,
+        updatedAt: Date.parse(source.updatedAt) || responseUpdatedAt(response),
+    };
+}
+
+async function saveDictionaryState(source) {
+    const writeState = async () => {
+        const cache = await caches.open(DICT_CACHE);
+        let current;
+        try { current = await (await cache.match(DICT_VERSION_URL))?.json(); } catch (_error) {}
+        // 另一分頁可能已完成更新，較慢返回的舊版本檢查不能將它覆蓋。
+        if (Date.parse(current?.updatedAt) > Date.parse(source.updatedAt)) return false;
+        await cache.put(DICT_VERSION_URL, new Response(JSON.stringify({
+            version: source.version,
+            updatedAt: source.updatedAt,
+            cacheName: source.cacheName,
+            checkedAt: Date.now(),
+        }), { headers: { 'Content-Type': 'application/json' } }));
+        return true;
+    };
+    return navigator.locks?.request
+        ? navigator.locks.request(`${DICT_CACHE}:${new URL(DICT_VERSION_URL, document.baseURI)}`, writeState)
+        : writeState();
+}
+
+async function saveDictionarySource(source) {
+    if (!('caches' in window)) return false;
+    validateDictionaryPair(...DICT_URLS.map(url => source.data.get(url)));
+    try {
+        const cache = await caches.open(source.cacheName);
+        await Promise.all(DICT_URLS.map(url => cache.put(url, source.responses.get(url).clone())));
+        // 先存齊兩份資料，最後才切換指標；下載或寫入失敗時繼續使用完整舊版。
+        await cache.put(DICT_VERSION_URL, new Response(JSON.stringify({ version: source.version })));
+        return await saveDictionaryState(source);
+    } catch (error) {
+        console.warn('字庫已載入，但本地保存失敗:', error);
+        return false;
+    }
+}
+
+async function legacyDictionaryMatchesRelease(source) {
+    return (await Promise.all(DICT_URLS.map(async url => {
+        const previous = source.responses.get(url);
+        const response = await fetchWithTimeout(url, { method: 'HEAD', cache: 'no-store' });
+        if (!response.ok) return false;
+        const etag = previous.headers.get('ETag');
+        if (etag && response.headers.get('ETag')) return etag === response.headers.get('ETag');
+        const modified = previous.headers.get('Last-Modified');
+        return !!modified && modified === response.headers.get('Last-Modified') &&
+            previous.headers.get('Content-Length') === response.headers.get('Content-Length');
+    }))).every(Boolean);
 }
 
 let dictionaryRefreshPromise = null;
 
-function scheduleDictionaryCacheRefresh() {
-    if (!('caches' in window) || dictionaryRefreshPromise) return;
-    dictionaryRefreshPromise = checkDictionaryCacheRefresh()
-        .catch(error => console.warn('字典背景更新检查失败:', error))
+function scheduleDictionaryCacheRefresh(source) {
+    const elapsed = Date.now() - source.checkedAt;
+    if (!('caches' in window) || dictionaryRefreshPromise ||
+        (source.checkedAt && elapsed >= 0 && elapsed < DICT_CHECK_INTERVAL)) return;
+    dictionaryRefreshPromise = checkDictionaryCacheRefresh(source)
+        .catch(error => console.warn('字庫更新失敗，繼續使用本地資料:', error))
         .finally(() => { dictionaryRefreshPromise = null; });
 }
 
-async function checkDictionaryCacheRefresh() {
-    const cache = await caches.open(DICT_CACHE);
-    const cachedEntries = await Promise.all(DICT_URLS.map(async url => ({
-        url,
-        response: await cache.match(url),
-    })));
-
-    if (cachedEntries.some(entry => !entry.response)) return;
-
-    const refreshResults = await Promise.all(cachedEntries.map(async ({ url, response: cachedResp }) => {
-        const condHeaders = {};
-        const etag = cachedResp.headers.get('ETag');
-        const lastMod = cachedResp.headers.get('Last-Modified');
-        if (etag) condHeaders['If-None-Match'] = etag;
-        if (lastMod) condHeaders['If-Modified-Since'] = lastMod;
-
-        const netResp = await fetch(url, { cache: 'no-cache', headers: condHeaders });
-
-        if (netResp.status === 304) return { url, changed: false };
-
-        if (!netResp.ok) {
-            throw new Error(`${url} 更新检查返回 ${netResp.status}`);
-        }
-
-        if (sameCachedPayload(cachedResp, netResp)) {
-            return { url, changed: false };
-        }
-
-        return {
-            url,
-            changed: true,
-            response: netResp,
-        };
-    }));
-
-    const changedResults = refreshResults.filter(result => result.changed);
-    if (!changedResults.length) return;
-
-    const nextResponses = new Map();
-    refreshResults.forEach(result => {
-        nextResponses.set(result.url, result.changed ? result.response : cachedEntries.find(entry => entry.url === result.url).response);
-    });
-
-    const [nextBase, nextExtra] = await Promise.all(
-        DICT_URLS.map(url => {
-            const r = nextResponses.get(url).clone();
-            return streamAndParseJson(r, null, { compressed: !responseBodyIsAlreadyDecoded(r) });
-        })
-    );
-
-    if (!Array.isArray(nextBase) || !Array.isArray(nextExtra) || nextBase.length !== nextExtra.length) {
-        console.warn('字典更新已检测到，但 base/extra 条目数不一致，本次跳过回写。');
+async function checkDictionaryCacheRefresh(source) {
+    const release = await fetchDictionaryVersion();
+    if (source.version === release.version) {
+        await saveDictionaryState(source);
+        return;
+    }
+    if (!source.version && await legacyDictionaryMatchesRelease(source)) {
+        await saveDictionaryState({ ...source, ...release });
         return;
     }
 
-    await Promise.all(changedResults.map(result => cache.put(result.url, result.response)));
-    if (!_updatedFiles) {
-        _updatedFiles = true;
-        showUpdateNotification();
-    }
+    const next = createDictionarySource(release);
+    await Promise.all(DICT_URLS.map(url => fetchGzJson(url, null, next)));
+    validateDictionaryPair(...DICT_URLS.map(url => next.data.get(url)));
+    // 若下載期間又發佈了新版，不提交可能來自不同發佈批次的檔案。
+    if ((await fetchDictionaryVersion()).version !== release.version) return;
+    if (await saveDictionarySource(next)) showUpdateNotification();
 }
 
-async function fetchGzJson(url, progressCallback) {
-    const fetchFromNetwork = async () => {
-        const resp = await fetch(url, { cache: 'no-cache' });
-        if (!resp.ok) throw new Error(`請求${url}失敗`);
-
-        const respForCache = ('caches' in window) ? resp.clone() : null;
-        const data = await streamAndParseJson(resp, progressCallback, { compressed: !responseBodyIsAlreadyDecoded(resp) });
-
-        if (respForCache) {
-            const cache = await caches.open(DICT_CACHE);
-            await cache.put(url, respForCache);
-        }
-        return { data, fromCache: false, updatedAt: responseUpdatedAt(resp) };
-    };
-
-    if (!('caches' in window)) return fetchFromNetwork();
-
-    const cache = await caches.open(DICT_CACHE);
-    const cachedResp = await cache.match(url);
-
-    if (cachedResp) {
-        const data = await streamAndParseJson(cachedResp.clone(), progressCallback, { compressed: !responseBodyIsAlreadyDecoded(cachedResp) });
-        return { data, fromCache: true, updatedAt: responseUpdatedAt(cachedResp) };
+function requestDictionaryPersistence() {
+    if (navigator.storage?.persisted && navigator.storage?.persist) {
+        navigator.storage.persisted()
+            .then(persistent => persistent || navigator.storage.persist())
+            .catch(() => {});
     }
-
-    return fetchFromNetwork();
 }
 
 async function copyText(text, btnElement) {
@@ -520,18 +594,20 @@ async function initDictionary() {
     const input  = document.getElementById('searchInput');
     const btn    = document.getElementById('searchBtn');
     const status = document.getElementById('extraStatus');
-    let baseFromCache = false;
+    let source;
     let baseUpdatedAt = null;
 
     try {
         btn.dataset.action = 'loading';
         btn.disabled = true;
         btn.textContent = '加載中...';
-        const { data: baseData, fromCache, updatedAt } = await fetchGzJson('base.json.gz', (loaded, total) => {
+        input.placeholder = '讀取本地字庫…';
+        source = await getDictionarySource();
+        input.placeholder = source.fromCache ? '讀取本地基礎字庫…' : '下載基礎字庫…';
+        const { data: baseData, updatedAt } = await fetchGzJson('base.json.gz', (loaded, total) => {
             const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
-            input.placeholder = `加載基礎字庫... ${pct}`;
-        });
-        baseFromCache = fromCache;
+            input.placeholder = `下載基礎字庫... ${pct}`;
+        }, source);
         baseUpdatedAt = updatedAt;
         updateDataUpdatedAt([baseUpdatedAt]);
         dictData = baseData;
@@ -557,30 +633,34 @@ async function initDictionary() {
     try {
         status.style.display = 'block';
         status.style.color = 'var(--gold)';
-        const { data: extraData, fromCache: extraFromCache, updatedAt: extraUpdatedAt } = await fetchGzJson('extra.json.gz', (loaded, total) => {
+        status.innerText = source.fromCache ? '讀取本地釋義與注釋…' : '下載釋義與注釋…';
+        const { data: extraData, updatedAt: extraUpdatedAt } = await fetchGzJson('extra.json.gz', (loaded, total) => {
             const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
-            status.innerText = `獲取釋義與注釋... ${pct}`;
-        });
+            status.innerText = `下載釋義與注釋... ${pct}`;
+        }, source);
 
         updateDataUpdatedAt([baseUpdatedAt, extraUpdatedAt]);
 
-        if (baseFromCache || extraFromCache) scheduleDictionaryCacheRefresh();
-        if (dictData.length === extraData.length) {
-            extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
-            buildIndexes({ includeExtra: true });
+        validateDictionaryPair(dictData, extraData);
+        extraData.forEach((ext, i) => { Object.assign(dictData[i], ext); });
+        buildIndexes({ includeExtra: true });
 
-            status.innerText = '擴展數據與索引加載完成！';
-            const searchBtn = document.getElementById('searchBtn');
-            searchBtn.dataset.action = 'search';
-            searchBtn.textContent = '查詢';
-        } else {
-            console.error('資料長度不匹配，跳過擴展資料合併');
-            status.innerText = '擴展數據異常，僅提供基礎查詢';
-            status.style.color = 'var(--vermilion)';
-        }
-        setTimeout(() => { status.style.display = 'none'; }, 2000);
-
+        status.innerText = '擴展數據與索引加載完成！';
+        const searchBtn = document.getElementById('searchBtn');
+        searchBtn.dataset.action = 'search';
+        searchBtn.textContent = '查詢';
         if (input.value.trim()) searchDict(false);
+
+        if (source.fromCache) {
+            scheduleDictionaryCacheRefresh(source);
+        } else if (!await saveDictionarySource(source)) {
+            status.innerText = '字庫已載入，但無法保存至本地；下次開啟可能需要重新下載';
+            status.style.color = 'var(--vermilion)';
+            dictionaryLoading = false;
+            return;
+        }
+        requestDictionaryPersistence();
+        setTimeout(() => { status.style.display = 'none'; }, 2000);
     } catch (error) {
         console.error('擴充字典加載錯誤:', error);
         updateDataUpdatedAt([baseUpdatedAt]);
@@ -1157,8 +1237,10 @@ function searchDict(updateUrl = true) {
             }
         });
     } else if (mode === 'meaning') {
-        if (query.length > 0 && meaningIndex.has(query[0])) {
-            const candidateIndices = Array.from(meaningIndex.get(query[0]));
+        // Read a full code point, matching the for...of iteration in buildIndexes.
+        const [firstChar] = query;
+        if (meaningIndex.has(firstChar)) {
+            const candidateIndices = Array.from(meaningIndex.get(firstChar));
             results = candidateIndices.map(i => dictData[i]).filter(item => {
                 const inMeaning = item.d?.[1]?.some(m => m.includes(query));
                 const inEtym    = item.e?.includes(query);
