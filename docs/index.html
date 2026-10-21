@@ -26,6 +26,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@hanzi.pro/webfonts-shanggu-serif-tc@0.1.0/swap.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;700&family=Noto+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="preload" href="base.json.gz" as="fetch" crossorigin="anonymous">
+    <script src="script.js" defer></script>
 </head>
 <body>
     <header class="page-header">
@@ -111,7 +113,7 @@
                 <h3 id="systemTitle">音系</h3>
                 <details class="welcome-details" open>
                     <summary>聲母概況</summary>
-                    <p>只有<code>s-</code>、<code>m-</code>兩種前綴，只在近音（<code>l-</code>、<code>j-</code>）前可以觀察到。端紐有演變爲中古書母的，寫作<code>st-</code>。<a href="zhuanlan.zhihu.com/p/706013675">閩語在其他紐也反映（不同的）前綴</a>（另在注釋中標出），但其不參與古典漢語的音系構擬，因此不予考慮。<code>C.r-</code>表示用非R系字符書寫，或與非中古來母詞有明顯同源關係的來母詞，其與通過比較法可以從方言確定的“特殊來母”關係待考。非三等標記爲便於顯示、從舊等原因，寫作<code>ˤ</code>，實際應爲舌根後縮（Retracted Tongue Root, RTR），即<code>◌̙</code>。</p>
+                    <p>只有<code>s-</code>、<code>m-</code>兩種前綴，只在近音（<code>l-</code>、<code>j-</code>）前可以觀察到。端紐有演變爲中古書母的，寫作<code>st-</code>。<a href="https://zhuanlan.zhihu.com/p/706013675">閩語在其他紐也反映（不同的）前綴</a>（另在注釋中標出），但其不參與古典漢語的音系構擬，因此不予考慮。<code>C.r-</code>表示用非R系字符書寫，或與非中古來母詞有明顯同源關係的來母詞，其與通過比較法可以從方言確定的“特殊來母”關係待考。非三等標記爲便於顯示、從舊等原因，寫作<code>ˤ</code>，實際應爲舌根後縮（Retracted Tongue Root, RTR），即<code>◌̙</code>。</p>
                 </details>
                 <details class="welcome-details">
                     <summary>韻母概況</summary>
@@ -197,7 +199,5 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 12V4M4 7l4-4 4 4"/></svg>
         <span>搜索框</span>
     </button>
-
-    <script src="script.js" defer></script>
 </body>
 </html>
