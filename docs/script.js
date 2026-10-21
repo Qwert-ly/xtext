@@ -174,11 +174,9 @@ async function readCachedDictionarySource() {
         try { state = stateResponse ? await stateResponse.json() : null; } catch (_error) {}
         const candidates = [];
         if (state && typeof state.version === 'string' && typeof state.cacheName === 'string' &&
-            (state.cacheName === DICT_CACHE || state.cacheName.startsWith(DICT_RELEASE_PREFIX))) {
+            state.cacheName.startsWith(DICT_RELEASE_PREFIX)) {
             candidates.push(state);
         }
-        // 舊緩存仍可直接使用；只在首次遷移時檢查檔案標頭
-        if (state?.cacheName !== DICT_CACHE) candidates.push({ cacheName: DICT_CACHE });
 
         for (const candidate of candidates) {
             try {
@@ -274,19 +272,6 @@ async function saveDictionarySource(source) {
     }
 }
 
-async function legacyDictionaryMatchesRelease(source) {
-    return (await Promise.all(DICT_URLS.map(async url => {
-        const previous = source.responses.get(url);
-        const response = await fetchWithTimeout(url, { method: 'HEAD', cache: 'no-store' });
-        if (!response.ok) return false;
-        const etag = previous.headers.get('ETag');
-        if (etag && response.headers.get('ETag')) return etag === response.headers.get('ETag');
-        const modified = previous.headers.get('Last-Modified');
-        return !!modified && modified === response.headers.get('Last-Modified') &&
-            previous.headers.get('Content-Length') === response.headers.get('Content-Length');
-    }))).every(Boolean);
-}
-
 let dictionaryRefreshPromise = null;
 
 function scheduleDictionaryCacheRefresh(source) {
@@ -302,10 +287,6 @@ async function checkDictionaryCacheRefresh(source) {
     const release = await fetchDictionaryVersion();
     if (source.version === release.version) {
         await saveDictionaryState(source);
-        return;
-    }
-    if (!source.version && await legacyDictionaryMatchesRelease(source)) {
-        await saveDictionaryState({ ...source, ...release });
         return;
     }
 

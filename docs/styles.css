@@ -278,23 +278,15 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 #updateBar .btn-reload {
     padding: 4px 14px;
     font-size: 12px;
-    background: var(--indigo);
-    color: #fff;
-    border: none;
-    border-radius: var(--r-xs);
-    cursor: pointer;
     letter-spacing: 0.08em;
     transition: background 0.2s;
 }
-#updateBar .btn-reload:hover { background: color-mix(in srgb, var(--indigo) 82%, #000); }
 #updateBar .btn-dismiss {
     padding: 4px 10px;
     font-size: 12px;
     background: transparent;
     color: var(--indigo);
     border: 1px solid rgba(44, 62, 107, 0.3);
-    border-radius: var(--r-xs);
-    cursor: pointer;
     transition: background 0.2s;
 }
 #updateBar .btn-dismiss:hover { background: rgba(44, 62, 107, 0.08); }
@@ -450,7 +442,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     border-bottom: 1px dotted rgba(255, 255, 255, 0.45);
     border-radius: 0;
     background: transparent;
-    cursor: pointer;
     line-height: inherit;
 }
 .initial-search:hover {
@@ -730,6 +721,7 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 .pagination-bar.bottom { margin: 8px 0 0; }
 .pagination-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pagination-controls button,
+.batch-actions button,
 .pagination-size select,
 .sort-select select {
     font-size: 12px;
@@ -739,12 +731,13 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     background: var(--paper-card);
     color: var(--ink-soft);
 }
-.pagination-controls button {
+.pagination-controls button,
+.batch-actions button {
     padding: 5px 9px;
-    cursor: pointer;
     transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
-.pagination-controls button:hover:not(:disabled) {
+.pagination-controls button:hover:not(:disabled),
+.batch-actions button:hover {
     border-color: var(--indigo);
     color: var(--indigo);
     background: var(--indigo-light);
@@ -753,7 +746,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     background: var(--paper-inset);
     color: var(--ink-faint);
     border-color: var(--border-light);
-    cursor: not-allowed;
     opacity: 0.75;
 }
 .pagination-controls button[aria-current="page"] {
@@ -773,14 +765,11 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 }
 
 .copy-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 13px;
     padding: 3px 6px;
-    border-radius: var(--r-xs);
-    transition: background 0.2s;
+    font-size: 13px;
+    background: transparent;
     color: inherit;
+    transition: background 0.2s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -792,13 +781,10 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     margin-left: auto;
     padding: 4px 10px;
     border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: var(--r-xs);
     background: transparent;
     color: rgba(255, 255, 255, 0.78);
-    cursor: pointer;
     font-size: 12px;
     letter-spacing: 0.04em;
-    white-space: nowrap;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 .export-btn:hover {
@@ -842,8 +828,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     background: transparent;
     color: var(--ink-faint);
     border: 1px solid var(--border-light);
-    border-radius: var(--r-xs);
-    cursor: pointer;
     transition: color 0.2s, border-color 0.2s;
     letter-spacing: 0.04em;
 }
@@ -898,9 +882,7 @@ button:focus-visible, a:focus-visible, select:focus-visible {
     padding: 0 2px;
     font-size: 12px;
     background: transparent;
-    border: none;
     color: var(--ink-faint);
-    cursor: pointer;
     line-height: 1;
     border-radius: 50%;
     transition: color 0.2s, background 0.2s;
@@ -923,18 +905,6 @@ button:focus-visible, a:focus-visible, select:focus-visible {
 .batch-actions button {
     padding: 7px 16px;
     font-size: 13px;
-    letter-spacing: 0.04em;
-    border: 1px solid var(--border);
-    border-radius: var(--r-xs);
-    background: var(--paper-card);
-    color: var(--ink-soft);
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s, background 0.2s;
-}
-.batch-actions button:hover {
-    border-color: var(--indigo);
-    color: var(--indigo);
-    background: var(--indigo-light);
 }
 .batch-table-wrap {
     overflow-x: auto;
