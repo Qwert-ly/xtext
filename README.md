@@ -15,7 +15,7 @@
 - `json2xlsx.py`：将AI校对结果转换回xlsx
 - `形聲考_240425`：《廣韻》形聲考（Sliark再整理, 2024.4.25），在`_maintain.py`中用于展示中古音韵地位
 - `音節表2小韻表.cls`：将音节表转换成小韵表的VBA脚本
-- `index.html`：上古汉语音节表的查询界面
+- `docs/index.html`：上古汉语音节表的查询界面
 
 ## NLP工具
 - `hmm_seg.py`：文言分词器。使用PMI和信息熵发现文言文词汇，生成训练语料，并基于隐马尔可夫模型（HMM）训练古文分词器
@@ -29,16 +29,30 @@
 ## 爬虫工具
 - `sidneyluo-scraper.py`：用于[漢川草廬](http://www.sidneyluo.net/index.php)的爬虫，可能需要另按页面格式调整
 - `wikipedia-scraper.py`：用于[维基百科](http://zh.wikipedia.org)的爬虫
-- `wikisource-scraper(2).py`：用于[维基文库](http://zh.qikisource.org)的爬虫
+- `wikisource-scraper(2).py`：用于[维基文库](http://zh.wikisource.org)的爬虫
 - `zitool-scraper.py`：用于[字统网](http://zi.tools)字源信息的爬虫
 
 ## 其他语料库
 ### github
 - [殆知阁古代文献](http://github.com/garychowcmu/daizhigev20)
 - [近代汉语语料库数据集(蒋彦廷, 潘雨婷, 杨乐. 基于统计与词嵌入的近代汉语动量结构研究. 2020)](http://github.com/JiangYanting/Pre-modern_Chinese_corpus_dataset)
-- 
 
 ### 其他
 - [BCC语料库](http://bcc.blcu.edu.cn/zh/cid/5)
 - [CCL语料库](http://ccl.pku.edu.cn:8080/ccl_corpus)
 - 
+
+---
+
+## 数据说明
+PBOC数据原则上于每月21日更新，提供两种JSON分发形式：
+- GitHub Releases中的default.json（推荐下游项目使用）：单文件完整版数据，包含全部字头、拟音、谐声信息、释义与注释。
+- docs目录下的网页端分包数据：为网页端加载优化，base.json.gz仅含字头、拟音、谐声域信息（体积小，便于快速查音），extra.json.gz存放释义、注释等其他信息（按需加载）。
+> PBOC仍在持续修订中，每月更新均可能涉及**字头拟音修改、收字增删、多音字读音增减、字形替换**及大量释义与注释修订。引用数据时，建议标注所采用的Release版本号（`YY.MM.DD`）。
+
+## 许可证
+本仓库采用分类许可（详见[LICENSE](./LICENSE)）：
+- PBOC原创数据与说明文档（[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.zh-hans)）：本项目的原创PBOC数据集（含GitHub Releases发布的JSON、docs/base.json.gz、docs/extra.json.gz、docs/data-version.json中的拟音、释义与考释注释）及原创文档均采用CC BY 4.0协议授权。署名“Nulll (PBOC / Philology-Based Old Chinese)”、附上本仓库或查询页链接并标明数据版本号，即视为满足署名要求。维基、词典类项目集中署名即可，无需逐词条重复标注。
+- 原创代码与网页前端（[MIT License](https://opensource.org/licenses/MIT)）：本仓库由作者原创的Python脚本、VBA脚本及`docs/`目录下的查询网页前端代码采用MIT License授权。
+- 仓库内的`形聲考_240425`、`tshet-uinh`、`tshet-uinh-sr`、第三方字体及外部链接所涉语料库，**均不在**上述开源许可授权范围内，其权利归原权利人所有，使用时请遵循原始来源的许可条件。
+

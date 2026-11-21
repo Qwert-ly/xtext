@@ -1,0 +1,37 @@
+License Notice for xtext / PBOC
+Copyright (c) 2024-present Nulll (Qwert-ly)
+
+1. PBOC Dataset & Documentation (CC BY 4.0)
+All original Philology-Based Old Chinese (PBOC / 基于文献的上古汉语) datasets and
+documentation—including Release data files (e.g., default.json), docs/base.json.gz,
+docs/extra.json.gz, docs/data-version.json, reconstructions, glosses, and
+commentaries—are licensed under the Creative Commons Attribution 4.0 International
+License (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+For wiki and dictionary projects (e.g., Wiktionary), centralized attribution
+satisfies the attribution requirement without per-entry repetition.
+
+2. Original Scripts & Web Code (MIT License)
+All original Python and VBA scripts, as well as original frontend code (including
+HTML, CSS, and JavaScript) in docs/, are licensed under the MIT License, except
+where otherwise indicated.
+MIT License
+Copyright (c) 2024–present Nulll (Qwert-ly)
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in the
+Software without restriction, including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so, subject to the
+following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+3. Third-Party Materials
+Third-party files (形聲考_240425, tshet-uinh, tshet-uinh-sr, third-party web
+fonts) and external corpora are not covered by the licenses above. They remain
+subject to their respective original licenses, copyright notices, and terms of use.
