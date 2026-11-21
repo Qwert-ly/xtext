@@ -1,55 +1,78 @@
+const $ = id => document.getElementById(id);
+
 let dictData = [];
 const meaningIndex = new Map();
-const zIndex = new Map();
-const pinyinIndex = new Map();
-const phoneticIndex = new Map();
-const domainExactIndex = new Map();
-const initialExactIndex = new Map();
+const exactIndexes = { z: new Map(), p: new Map(), y: new Map(), a: new Map(), m: new Map() };
+const BASE_INDEX_KEYS = ['z', 'p', 'y', 'a'];
+const ALL_INDEX_KEYS = ['z', 'p', 'y', 'a', 'm'];
+
 const DICT_CACHE = 'pboc-dict-v1';
 const DICT_URLS = ['base.json.gz', 'extra.json.gz'];
 const DICT_VERSION_URL = 'data-version.json';
 const DICT_RELEASE_PREFIX = `${DICT_CACHE}-release-`;
 const DICT_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
+
 const SEARCH_MODES = new Set(['default', 'exact', 'regex', 'meaning', 'batch']);
-const CJK_RE = /[\u{3400}-\u{4DBF}\u{4E00}-\u{9FFF}\u{F900}-\u{FAFF}\u{20000}-\u{323AF}]/u;
-const CJK_TOKEN_RE = /[\u{3400}-\u{4DBF}\u{4E00}-\u{9FFF}\u{F900}-\u{FAFF}\u{20000}-\u{323AF}]+|[^\u{3400}-\u{4DBF}\u{4E00}-\u{9FFF}\u{F900}-\u{FAFF}\u{20000}-\u{323AF}]+/gu;
+const MODE_LABELS = { default: '默認', exact: '精確', regex: '正則', meaning: '釋義', batch: '批量' };
+const CJK_RANGE = '\\u{3400}-\\u{4DBF}\\u{4E00}-\\u{9FFF}\\u{F900}-\\u{FAFF}\\u{20000}-\\u{323AF}';
+const CJK_RE = new RegExp(`[${CJK_RANGE}]`, 'u');
+const CJK_TOKEN_RE = new RegExp(`[${CJK_RANGE}]+|[^${CJK_RANGE}]+`, 'gu');
 const BATCH_MAX_LENGTH = 5000;
+const REGEX_MAX_LEN = 100;
+const REDOS_PATTERN = /(\(.*\*.*\*|\(.*\+.*\+|\(\?=.*\*|\(\?!.*\*|(\.\*){3,}|\(\w+\+\)\+|\(\w+\*\)\+)/;
+
 const IMAGE_EXPORT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
 const IMAGE_EXPORT_TIMEOUT = 15000;
-const supportsGzipStreams = 'DecompressionStream' in window;
+
+const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
+const PAGE_SIZE_STORAGE_KEY = 'pboc-page-size';
+const HISTORY_STORAGE_KEY = 'pboc-search-history';
+const HISTORY_MAX = 20;
+const SORT_OPTIONS = [
+    { value: 'default',  label: '默認順序', field: null },
+    { value: 'pinyin',   label: '按拼音',   field: 'p' },
+    { value: 'phonetic', label: '按擬音',   field: 'y' },
+    { value: 'domain',   label: '按諧聲域', field: 'a' },
+];
+const zhCollator = new Intl.Collator('zh', { sensitivity: 'base' });
+
 let dictionaryLoading = false;
+let dictionaryRefreshPromise = null;
+let updateNotified = false;
+let _batchRows = null;
+let imageExportLoader = null;
 
-// 全域快捷鍵：按下 / 快速 focus 搜尋框
-document.addEventListener('keydown', (e) => {
-    const target = e.target;
-    const isTyping = target instanceof HTMLElement && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable
-    );
-
-    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping) {
-        e.preventDefault();
-        document.getElementById('searchInput').focus();
-    }
-});
+let currentResults = [];
+let currentQuery = '';
+let currentMode = 'default';
+let currentSort = 'default';
+let currentPage = 1;
+let pendingUrlPage = 1;
+let pageSize = normalizePageSize(readStorage(PAGE_SIZE_STORAGE_KEY));
 
 function escapeHtml(unsafe) {
     if (typeof unsafe !== 'string') return unsafe;
     return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
-let updateNotified = false;
+function readStorage(key, fallback = null) {
+    try { return localStorage.getItem(key) ?? fallback; } catch (_e) { return fallback; }
+}
+
+function writeStorage(key, value) {
+    try { localStorage.setItem(key, value); } catch (_e) {}
+}
+
 function showUpdateNotification() {
     if (updateNotified) return;
     updateNotified = true;
-    const bar = document.getElementById('updateBar');
+    const bar = $('updateBar');
     if (bar) bar.style.display = 'flex';
 }
 
@@ -57,34 +80,28 @@ function addToIndex(index, key, item) {
     if (!key) return;
     const normalized = String(key).trim();
     if (!normalized) return;
-    if (!index.has(normalized)) index.set(normalized, []);
-    index.get(normalized).push(item);
+    let bucket = index.get(normalized);
+    if (!bucket) index.set(normalized, (bucket = []));
+    bucket.push(item);
 }
 
 function buildIndexes({ includeExtra = false } = {}) {
-    zIndex.clear();
-    pinyinIndex.clear();
-    phoneticIndex.clear();
-    domainExactIndex.clear();
-    initialExactIndex.clear();
+    ALL_INDEX_KEYS.forEach(k => exactIndexes[k].clear());
     meaningIndex.clear();
 
+    const keys = includeExtra ? ALL_INDEX_KEYS : BASE_INDEX_KEYS;
     dictData.forEach((item, index) => {
-        addToIndex(zIndex, item.z, item);
-        addToIndex(pinyinIndex, item.p, item);
-        addToIndex(phoneticIndex, item.y, item);
-        addToIndex(domainExactIndex, item.a, item);
+        keys.forEach(k => addToIndex(exactIndexes[k], item[k], item));
         if (includeExtra) {
-            addToIndex(initialExactIndex, item.m, item);
-            const addMeaningText = (text) => {
+            const addMeaningText = text => {
                 if (!text) return;
                 for (const char of text) {
-                    if (!meaningIndex.has(char)) meaningIndex.set(char, new Set());
-                    meaningIndex.get(char).add(index);
+                    let set = meaningIndex.get(char);
+                    if (!set) meaningIndex.set(char, (set = new Set()));
+                    set.add(index);
                 }
             };
             item.d?.[1]?.forEach(addMeaningText);
-            addMeaningText(item.e);
             addMeaningText(item.n);
         }
     });
@@ -113,12 +130,16 @@ function responseBodyIsAlreadyDecoded(response) {
     return !!encoding && encoding.toLowerCase() !== 'identity';
 }
 
+function formatProgress(loaded, total) {
+    return total ? `${Math.round((loaded / total) * 100)}%` : `${(loaded / 1024 / 1024).toFixed(2)} MB`;
+}
+
 async function streamAndParseJson(response, progressCallback, { compressed = false } = {}) {
     const contentLength = response.headers.get('content-length');
     const total = contentLength ? parseInt(contentLength, 10) : 0;
     let loaded = 0;
 
-    if (compressed && !supportsGzipStreams) {
+    if (compressed && !('DecompressionStream' in window)) {
         throw new Error('此瀏覽器不支持DecompressionStream，無法直接讀取.json.gz。需要Chrome 80+/Firefox 113+/Safari 16.4+');
     }
 
@@ -131,9 +152,7 @@ async function streamAndParseJson(response, progressCallback, { compressed = fal
     });
 
     let stream = response.body.pipeThrough(progressStream);
-    if (compressed) {
-        stream = stream.pipeThrough(new DecompressionStream('gzip'));
-    }
+    if (compressed) stream = stream.pipeThrough(new DecompressionStream('gzip'));
 
     return JSON.parse(await new Response(stream).text());
 }
@@ -172,30 +191,26 @@ async function readCachedDictionarySource() {
         const stateResponse = await stateCache.match(DICT_VERSION_URL);
         let state = null;
         try { state = stateResponse ? await stateResponse.json() : null; } catch (_error) {}
-        const candidates = [];
-        if (state && typeof state.version === 'string' && typeof state.cacheName === 'string' &&
-            state.cacheName.startsWith(DICT_RELEASE_PREFIX)) {
-            candidates.push(state);
+        if (!state || typeof state.version !== 'string' || typeof state.cacheName !== 'string' ||
+            !state.cacheName.startsWith(DICT_RELEASE_PREFIX)) {
+            return null;
         }
-
-        for (const candidate of candidates) {
-            try {
-                const cache = await caches.open(candidate.cacheName);
-                const responses = await Promise.all(DICT_URLS.map(url => cache.match(url)));
-                if (responses.some(response => !response)) continue;
-                const data = await Promise.all(responses.map(response => streamAndParseJson(
-                    response.clone(), null, { compressed: !responseBodyIsAlreadyDecoded(response) }
-                )));
-                validateDictionaryPair(...data);
-                return {
-                    ...candidate,
-                    fromCache: true,
-                    responses: new Map(DICT_URLS.map((url, i) => [url, responses[i]])),
-                    data: new Map(DICT_URLS.map((url, i) => [url, data[i]])),
-                };
-            } catch (error) {
-                console.warn('本地字庫無法讀取，將嘗試重新下載:', error);
-            }
+        try {
+            const cache = await caches.open(state.cacheName);
+            const responses = await Promise.all(DICT_URLS.map(url => cache.match(url)));
+            if (responses.some(response => !response)) return null;
+            const data = await Promise.all(responses.map(response => streamAndParseJson(
+                response.clone(), null, { compressed: !responseBodyIsAlreadyDecoded(response) }
+            )));
+            validateDictionaryPair(...data);
+            return {
+                ...state,
+                fromCache: true,
+                responses: new Map(DICT_URLS.map((url, i) => [url, responses[i]])),
+                data: new Map(DICT_URLS.map((url, i) => [url, data[i]])),
+            };
+        } catch (error) {
+            console.warn('本地字庫無法讀取，將嘗試重新下載:', error);
         }
     } catch (error) {
         console.warn('瀏覽器無法開啟字庫緩存:', error);
@@ -230,11 +245,8 @@ async function fetchGzJson(url, progressCallback, source) {
             compressed: !responseBodyIsAlreadyDecoded(response),
         }));
     }
-    return {
-        data: source.data.get(url),
-        fromCache: source.fromCache,
-        updatedAt: Date.parse(source.updatedAt) || responseUpdatedAt(response),
-    };
+    const updatedAt = Date.parse(source.updatedAt) || Date.parse(response?.headers.get('last-modified') || '') || null;
+    return { data: source.data.get(url), fromCache: source.fromCache, updatedAt };
 }
 
 async function saveDictionaryState(source) {
@@ -264,15 +276,12 @@ async function saveDictionarySource(source) {
         const cache = await caches.open(source.cacheName);
         await Promise.all(DICT_URLS.map(url => cache.put(url, source.responses.get(url).clone())));
         // 先存齊兩份資料，最後才切換指標；下載或寫入失敗時繼續使用完整舊版。
-        await cache.put(DICT_VERSION_URL, new Response(JSON.stringify({ version: source.version })));
         return await saveDictionaryState(source);
     } catch (error) {
         console.warn('字庫已載入，但本地保存失敗:', error);
         return false;
     }
 }
-
-let dictionaryRefreshPromise = null;
 
 function scheduleDictionaryCacheRefresh(source) {
     const elapsed = Date.now() - source.checkedAt;
@@ -311,14 +320,11 @@ async function copyText(text, btnElement) {
         await navigator.clipboard.writeText(text);
         const originalText = btnElement.innerText;
         btnElement.innerText = '✔️';
-        setTimeout(() => btnElement.innerText = originalText, 1500);
+        setTimeout(() => { btnElement.innerText = originalText; }, 1500);
     } catch (err) {
         console.error('複製失敗:', err);
     }
 }
-
-let _batchRows = null;
-let imageExportLoader = null;
 
 function loadImageExportLibrary() {
     if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
@@ -374,10 +380,9 @@ async function exportCard(card) {
         if (document.fonts?.ready) await document.fonts.ready;
         btn.textContent = '導出中…';
 
-        const bgColor = window.getComputedStyle(card).backgroundColor;
         const dataUrl = await htmlToImage.toPng(card, {
             pixelRatio: Math.min(2, window.devicePixelRatio || 1),
-            backgroundColor: bgColor,
+            backgroundColor: window.getComputedStyle(card).backgroundColor,
             cacheBust: true,
             filter: node => !node.classList?.contains('copy-btn') && !node.classList?.contains('export-btn'),
             style: { margin: '0', animation: 'none', transform: 'none', opacity: '1' }
@@ -385,9 +390,8 @@ async function exportCard(card) {
 
         const zi = safeFileName(card.dataset.char, 'result-card');
         const phonetic = safeFileName(card.dataset.phonetic, '');
-        const filename = phonetic ? `pboc-${zi}-${phonetic}.png` : `pboc-${zi}.png`;
         const link = document.createElement('a');
-        link.download = filename;
+        link.download = phonetic ? `pboc-${zi}-${phonetic}.png` : `pboc-${zi}.png`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
@@ -405,64 +409,23 @@ async function exportCard(card) {
     }
 }
 
-function handleResultsClick(event) {
-    if (!(event.target instanceof Element)) return;
+function setSearchMode(mode) {
+    const radio = mode && SEARCH_MODES.has(mode)
+        ? document.querySelector(`input[name="searchMode"][value="${mode}"]`)
+        : null;
+    if (radio) radio.checked = true;
+    syncSearchModeUI();
+}
 
-    const copyBtn = event.target.closest('.copy-btn');
-    if (copyBtn) {
-        copyText(copyBtn.dataset.copyText || '', copyBtn);
-        return;
-    }
-
-    const exactSearchBtn = event.target.closest('[data-exact-search]');
-    if (exactSearchBtn) {
-        searchExact(exactSearchBtn.dataset.exactSearch || '');
-        return;
-    }
-
-    const exportBtn = event.target.closest('.export-btn');
-    if (exportBtn) {
-        exportCard(exportBtn.closest('.result-card'));
-        return;
-    }
-
-    const batchCopyBtn = event.target.closest('[data-batch-copy]');
-    if (batchCopyBtn && _batchRows) {
-        const format = batchCopyBtn.dataset.batchCopy;
-        if (format === 'tsv') {
-            const lines = ['字\t拼音\t擬音\t諧聲域'];
-            _batchRows.forEach(row => {
-                if (row.items.length === 0) {
-                    lines.push(`${row.char}\t\t\t未收錄`);
-                } else {
-                    row.items.forEach(item => {
-                        lines.push(`${row.char}\t${item.p || ''}\t${item.y || ''}\t${item.a || ''}`);
-                    });
-                }
-            });
-            copyText(lines.join('\n'), batchCopyBtn);
-        } else if (format === 'text') {
-            const parts = [];
-            const seen = new Set();
-            _batchRows.forEach(row => {
-                if (seen.has(row.char)) return;
-                seen.add(row.char);
-                if (row.items.length === 0) {
-                    parts.push(`${row.char}（?）`);
-                } else if (row.items.length === 1) {
-                    parts.push(`${row.char}（${row.items[0].y || '?'}）`);
-                } else {
-                    const phonetics = row.items.map(it => it.y || '?').join(' / ');
-                    parts.push(`${row.char}（${phonetics}）`);
-                }
-            });
-            copyText(parts.join('\n'), batchCopyBtn);
-        }
-    }
+function applySearch(query, mode, scrollTop = false) {
+    $('searchInput').value = query;
+    setSearchMode(mode);
+    searchDict();
+    if (scrollTop) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function syncSearchModeUI() {
-    const searchInput = document.getElementById('searchInput');
+    const searchInput = $('searchInput');
     const mode = document.querySelector('input[name="searchMode"]:checked')?.value;
     if (!searchInput || !mode) return;
     if (mode === 'batch') {
@@ -478,91 +441,62 @@ function syncSearchModeUI() {
     }
 }
 
-function openHistoryItem(item) {
-    if (!item) return;
-    document.getElementById('searchInput').value = item.dataset.query;
-    const radio = document.querySelector(`input[name="searchMode"][value="${item.dataset.mode}"]`);
-    if (radio) radio.checked = true;
-    syncSearchModeUI();
-    searchDict();
-}
+function handleResultsClick(event) {
+    if (!(event.target instanceof Element)) return;
 
-function setupEventListeners() {
-    document.getElementById('searchInput')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.isComposing) searchDict();
-    });
-    document.getElementById('searchBtn')?.addEventListener('click', () => {
-        const btn = document.getElementById('searchBtn');
-        if (btn?.dataset.action === 'retry') {
-            initDictionary();
-            return;
-        }
-        searchDict();
-    });
-    document.querySelectorAll('input[name="searchMode"]').forEach(input => {
-        input.addEventListener('change', () => {
-            syncSearchModeUI();
-            searchDict();
-        });
-    });
-    syncSearchModeUI();
-    document.getElementById('reloadBtn')?.addEventListener('click', () => location.reload());
-    document.getElementById('dismissUpdateBtn')?.addEventListener('click', () => {
-        const bar = document.getElementById('updateBar');
-        if (bar) bar.style.display = 'none';
-    });
-    document.getElementById('results')?.addEventListener('click', handleResultsClick);
-    document.getElementById('searchHistory')?.addEventListener('click', (e) => {
-        if (!(e.target instanceof Element)) return;
-        if (e.target.closest('.history-clear-btn')) {
-            clearSearchHistory();
-            return;
-        }
-        if (e.target.closest('.history-item-delete')) {
-            const item = e.target.closest('.history-item');
-            if (item) removeSearchHistoryItem(item.dataset.query, item.dataset.mode);
-            return;
-        }
-        const item = e.target.closest('.history-item');
-        if (item) openHistoryItem(item);
-    });
-    document.getElementById('searchHistory')?.addEventListener('keydown', (e) => {
-        if ((e.key !== 'Enter' && e.key !== ' ') || !(e.target instanceof Element)) return;
-        const item = e.target.closest('.history-item');
-        if (!item || e.target.closest('button')) return;
-        e.preventDefault();
-        openHistoryItem(item);
-    });
-}
-
-function responseUpdatedAt(response) {
-    const lastModified = response?.headers.get('last-modified');
-    if (!lastModified) return null;
-    const timestamp = Date.parse(lastModified);
-    return Number.isNaN(timestamp) ? null : timestamp;
-}
-
-function updateDataUpdatedAt(timestamps) {
-    const element = document.getElementById('dataUpdatedAt');
-    if (!element) return;
-
-    const latest = timestamps.filter(timestamp => Number.isFinite(timestamp)).reduce(
-        (current, timestamp) => Math.max(current, timestamp),
-        0
-    );
-    if (!latest) {
-        element.textContent = '資料最後更新：無法取得';
+    const copyBtn = event.target.closest('.copy-btn');
+    if (copyBtn) {
+        copyText(copyBtn.dataset.copyText || '', copyBtn);
         return;
     }
 
-    element.textContent = `資料最後更新：${new Intl.DateTimeFormat(undefined, {
-        year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'
-    }).format(new Date(latest))}`;
+    const exactSearchBtn = event.target.closest('[data-exact-search]');
+    if (exactSearchBtn) {
+        applySearch(exactSearchBtn.dataset.exactSearch || '', 'exact', true);
+        return;
+    }
+
+    const exportBtn = event.target.closest('.export-btn');
+    if (exportBtn) {
+        exportCard(exportBtn.closest('.result-card'));
+        return;
+    }
+
+    const batchCopyBtn = event.target.closest('[data-batch-copy]');
+    if (!batchCopyBtn || !_batchRows) return;
+
+    const format = batchCopyBtn.dataset.batchCopy;
+    if (format === 'tsv') {
+        const lines = ['字\t拼音\t擬音\t諧聲域', ..._batchRows.flatMap(row =>
+            row.items.length
+                ? row.items.map(it => `${row.char}\t${it.p || ''}\t${it.y || ''}\t${it.a || ''}`)
+                : [`${row.char}\t\t\t未收錄`]
+        )];
+        copyText(lines.join('\n'), batchCopyBtn);
+    } else if (format === 'text') {
+        const seen = new Set();
+        const parts = _batchRows.filter(row => !seen.has(row.char) && seen.add(row.char)).map(row =>
+            `${row.char}（${row.items.length ? row.items.map(it => it.y || '?').join(' / ') : '?'}）`
+        );
+        copyText(parts.join('\n'), batchCopyBtn);
+    }
+}
+
+function updateDataUpdatedAt(timestamps) {
+    const element = $('dataUpdatedAt');
+    if (!element) return;
+
+    const latest = timestamps.filter(Number.isFinite).reduce((a, b) => Math.max(a, b), 0);
+    element.textContent = latest
+        ? `資料最後更新：${new Intl.DateTimeFormat(undefined, {
+            year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'
+        }).format(new Date(latest))}`
+        : '資料最後更新：無法取得';
 }
 
 function renderWelcomePage() {
-    const resultsDiv = document.getElementById('results');
-    const template = document.getElementById('welcomeTemplate');
+    const resultsDiv = $('results');
+    const template = $('welcomeTemplate');
     if (!resultsDiv || !template) return;
 
     resultsDiv.replaceChildren(template.content.cloneNode(true));
@@ -572,9 +506,9 @@ function renderWelcomePage() {
 async function initDictionary() {
     if (dictionaryLoading) return;
     dictionaryLoading = true;
-    const input  = document.getElementById('searchInput');
-    const btn    = document.getElementById('searchBtn');
-    const status = document.getElementById('extraStatus');
+    const input  = $('searchInput');
+    const btn    = $('searchBtn');
+    const status = $('extraStatus');
     let source;
     let baseUpdatedAt = null;
 
@@ -586,8 +520,7 @@ async function initDictionary() {
         source = await getDictionarySource();
         input.placeholder = source.fromCache ? '讀取本地基礎字庫…' : '下載基礎字庫…';
         const { data: baseData, updatedAt } = await fetchGzJson('base.json.gz', (loaded, total) => {
-            const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
-            input.placeholder = `下載基礎字庫... ${pct}`;
+            input.placeholder = `下載基礎字庫... ${formatProgress(loaded, total)}`;
         }, source);
         baseUpdatedAt = updatedAt;
         updateDataUpdatedAt([baseUpdatedAt]);
@@ -616,8 +549,7 @@ async function initDictionary() {
         status.style.color = 'var(--gold)';
         status.innerText = source.fromCache ? '讀取本地釋義與注釋…' : '下載釋義與注釋…';
         const { data: extraData, updatedAt: extraUpdatedAt } = await fetchGzJson('extra.json.gz', (loaded, total) => {
-            const pct = total ? Math.round((loaded / total) * 100) + '%' : (loaded / 1024 / 1024).toFixed(2) + ' MB';
-            status.innerText = `下載釋義與注釋... ${pct}`;
+            status.innerText = `下載釋義與注釋... ${formatProgress(loaded, total)}`;
         }, source);
 
         updateDataUpdatedAt([baseUpdatedAt, extraUpdatedAt]);
@@ -627,9 +559,6 @@ async function initDictionary() {
         buildIndexes({ includeExtra: true });
 
         status.innerText = '擴展數據與索引加載完成！';
-        const searchBtn = document.getElementById('searchBtn');
-        searchBtn.dataset.action = 'search';
-        searchBtn.textContent = '查詢';
         if (input.value.trim()) searchDict(false);
 
         if (source.fromCache) {
@@ -652,26 +581,16 @@ async function initDictionary() {
     dictionaryLoading = false;
 }
 
-// 啟動
-setupEventListeners();
-renderWelcomePage();
-initDictionary();
-
 function loadFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
-    const mode = params.get('mode');
     const sort = params.get('sort');
     pageSize = normalizePageSize(params.get('size') || pageSize);
     pendingUrlPage = Math.max(1, parseInt(params.get('page'), 10) || 1);
-    currentSort = (sort && SORT_OPTIONS.some(o => o.value === sort)) ? sort : 'default';
+    currentSort = SORT_OPTIONS.some(o => o.value === sort) ? sort : 'default';
 
-    if (mode && SEARCH_MODES.has(mode)) {
-        const radio = document.querySelector(`input[name="searchMode"][value="${mode}"]`);
-        if (radio) radio.checked = true;
-    }
-    syncSearchModeUI();
-    const input = document.getElementById('searchInput');
+    setSearchMode(params.get('mode'));
+    const input = $('searchInput');
     if (q) {
         input.value = q;
         searchDict(false);
@@ -684,27 +603,13 @@ function loadFromUrl() {
     }
 }
 
-window.addEventListener('popstate', loadFromUrl);
-
-function searchExact(value) {
-    document.getElementById('searchInput').value = value;
-    document.querySelector('input[name="searchMode"][value="exact"]').checked = true;
-    syncSearchModeUI();
-    searchDict();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-const REGEX_MAX_LEN = 100;
-const REDOS_PATTERN = /(\(.*\*.*\*|\(.*\+.*\+|\(\?=.*\*|\(\?!.*\*|(\.\*){3,}|\(\w+\+\)\+|\(\w+\*\)\+)/;
-
-function safeRegex(str, flags = "") {
+function safeRegex(str, flags = '') {
     if (str.length > REGEX_MAX_LEN) return { ok: false, msg: `正則表達式過長（${str.length}/${REGEX_MAX_LEN}字元）` };
     if (REDOS_PATTERN.test(str)) return { ok: false, msg: '正則表達式含有可能造成卡頓的模式，已拒絕執行' };
     try {
-        const safeFlags = Array.from(new Set(flags.replace(/g/g, '').split(''))).join('');
-        const r = new RegExp(str, safeFlags);
-        return { ok: true, regex: r };
-    } catch(e) {
+        const safeFlags = Array.from(new Set(flags.replace(/g/g, ''))).join('');
+        return { ok: true, regex: new RegExp(str, safeFlags) };
+    } catch (e) {
         return { ok: false, msg: `正則語法錯誤：${e.message}` };
     }
 }
@@ -718,16 +623,15 @@ function parseLinks(text, formatText = escapeHtml) {
     for (const match of text.matchAll(urlRegex)) {
         const url = match[0];
         html += formatText(text.slice(lastIndex, match.index));
-        let cleanUrl = url.replace(/[.,?!)\]]+$/, '');
+        const cleanUrl = url.replace(/[.,?!)\]]+$/, '');
         const trailingText = url.slice(cleanUrl.length);
         if (url.length < 7) {
             html += formatText(url);
-            lastIndex = match.index + url.length;
-            continue;
+        } else {
+            const href = cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`;
+            html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="annotation-link">${escapeHtml(cleanUrl)}</a>`;
+            html += formatText(trailingText);
         }
-        let href = cleanUrl.startsWith('http') ? cleanUrl : 'https://' + cleanUrl;
-        html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="annotation-link">${escapeHtml(cleanUrl)}</a>`;
-        html += formatText(trailingText);
         lastIndex = match.index + url.length;
     }
     return html + formatText(text.slice(lastIndex));
@@ -741,30 +645,9 @@ function renderAnnotation(text) {
     ).join('')}</ul>`;
 }
 
-const DEFAULT_PAGE_SIZE = 50;
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
-const PAGE_SIZE_STORAGE_KEY = 'pboc-page-size';
-const HISTORY_STORAGE_KEY = 'pboc-search-history';
-const HISTORY_MAX = 20;
-const SORT_OPTIONS = [
-    { value: 'default', label: '默認順序' },
-    { value: 'pinyin',  label: '按拼音' },
-    { value: 'phonetic', label: '按擬音' },
-    { value: 'domain',  label: '按諧聲域' },
-];
-const MODE_LABELS = { default: '默認', exact: '精確', regex: '正則', meaning: '釋義', batch: '批量' };
-let currentResults = [];
-let currentQuery = '';
-let currentMode = 'default';
-let currentSort = 'default';
-let currentPage = 1;
-let pendingUrlPage = 1;
-let pageSize = readStoredPageSize();
-
 function highlightMeaningSearchTerm(text) {
     const escapedText = escapeHtml(text);
     if (currentMode !== 'meaning' || !currentQuery) return escapedText;
-
     const escapedQuery = escapeHtml(currentQuery);
     return escapedText.split(escapedQuery).join(`<mark class="meaning-search-hit">${escapedQuery}</mark>`);
 }
@@ -774,51 +657,18 @@ function normalizePageSize(value) {
     return PAGE_SIZE_OPTIONS.includes(parsed) ? parsed : DEFAULT_PAGE_SIZE;
 }
 
-function readStoredPageSize() {
-    try {
-        return normalizePageSize(localStorage.getItem(PAGE_SIZE_STORAGE_KEY) || DEFAULT_PAGE_SIZE);
-    } catch (_e) {
-        return DEFAULT_PAGE_SIZE;
-    }
-}
-
-function persistPageSize(value) {
-    try { localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(value)); } catch (_e) {}
-}
-
 function readSearchHistory() {
-    try {
-        return JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
-    } catch (_e) { return []; }
+    try { return JSON.parse(readStorage(HISTORY_STORAGE_KEY, '[]')); } catch (_e) { return []; }
 }
 
-function writeSearchHistory(history) {
-    try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch (_e) {}
-}
-
-function addSearchHistory(query, mode) {
-    if (!query || mode === 'batch') return;
-    let history = readSearchHistory();
-    history = history.filter(h => !(h.query === query && h.mode === mode));
-    history.unshift({ query, mode });
-    if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
-    writeSearchHistory(history);
-}
-
-function removeSearchHistoryItem(query, mode) {
-    let history = readSearchHistory();
-    history = history.filter(h => !(h.query === query && h.mode === mode));
-    writeSearchHistory(history);
-    renderSearchHistory();
-}
-
-function clearSearchHistory() {
-    writeSearchHistory([]);
-    renderSearchHistory();
+function updateSearchHistory(mutator, rerender = false) {
+    const next = mutator(readSearchHistory());
+    writeStorage(HISTORY_STORAGE_KEY, JSON.stringify(next));
+    if (rerender) renderSearchHistory();
 }
 
 function renderSearchHistory() {
-    const container = document.getElementById('searchHistory');
+    const container = $('searchHistory');
     if (!container) return;
     const history = readSearchHistory();
     if (!history.length) { container.replaceChildren(); return; }
@@ -840,47 +690,25 @@ function renderSearchHistory() {
 }
 
 function sortResults(results, sortKey) {
-    if (sortKey === 'default' || !results.length) return results;
-    const sorted = [...results];
-    const collator = new Intl.Collator('zh', { sensitivity: 'base' });
-    switch (sortKey) {
-        case 'pinyin':
-            sorted.sort((a, b) => collator.compare(a.p || '', b.p || ''));
-            break;
-        case 'phonetic':
-            sorted.sort((a, b) => collator.compare(a.y || '', b.y || ''));
-            break;
-        case 'domain':
-            sorted.sort((a, b) => collator.compare(a.a || '', b.a || ''));
-            break;
-    }
-    return sorted;
-}
-
-function changeSort(value) {
-    if (currentSort === value) return;
-    currentSort = value;
-    currentPage = 1;
-    renderPaginatedResults(true, false);
+    const field = SORT_OPTIONS.find(o => o.value === sortKey)?.field;
+    return (!field || !results.length)
+        ? results
+        : [...results].sort((a, b) => zhCollator.compare(a[field] || '', b[field] || ''));
 }
 
 function updateSearchUrl() {
     const url = new URL(window.location);
-    if (currentQuery) {
-        url.searchParams.set('q', currentQuery);
-        url.searchParams.set('mode', currentMode);
-        if (currentPage > 1) url.searchParams.set('page', String(currentPage));
-        else url.searchParams.delete('page');
-        if (pageSize !== DEFAULT_PAGE_SIZE) url.searchParams.set('size', String(pageSize));
-        else url.searchParams.delete('size');
-        if (currentSort !== 'default') url.searchParams.set('sort', currentSort);
-        else url.searchParams.delete('sort');
-    } else {
-        url.searchParams.delete('q');
-        url.searchParams.delete('mode');
-        url.searchParams.delete('page');
-        url.searchParams.delete('size');
-        url.searchParams.delete('sort');
+    const params = currentQuery ? {
+        q: currentQuery,
+        mode: currentMode,
+        page: currentPage > 1 ? String(currentPage) : null,
+        size: pageSize !== DEFAULT_PAGE_SIZE ? String(pageSize) : null,
+        sort: currentSort !== 'default' ? currentSort : null,
+    } : { q: null, mode: null, page: null, size: null, sort: null };
+
+    for (const [k, v] of Object.entries(params)) {
+        if (v == null) url.searchParams.delete(k);
+        else url.searchParams.set(k, v);
     }
     if (window.location.search !== url.search) window.history.pushState({}, '', url);
 }
@@ -906,6 +734,24 @@ function createPageButton(label, page, disabled = false, current = false) {
     return btn;
 }
 
+function createSelectControl(className, labelText, ariaLabel, options, selectedValue, onChange) {
+    const label = document.createElement('label');
+    label.className = className;
+    label.textContent = labelText;
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', ariaLabel);
+    options.forEach(({ value, label: text }) => {
+        const option = document.createElement('option');
+        option.value = String(value);
+        option.textContent = text;
+        option.selected = value === selectedValue;
+        select.appendChild(option);
+    });
+    select.addEventListener('change', () => onChange(select.value));
+    label.appendChild(select);
+    return label;
+}
+
 function createPaginationBar(total, position = 'top', includeOptions = position === 'top') {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const start = (currentPage - 1) * pageSize + 1;
@@ -923,37 +769,15 @@ function createPaginationBar(total, position = 'top', includeOptions = position 
     controls.className = 'pagination-controls';
 
     if (includeOptions) {
-        const sizeLabel = document.createElement('label');
-        sizeLabel.className = 'pagination-size';
-        sizeLabel.textContent = '每頁';
-        const select = document.createElement('select');
-        select.setAttribute('aria-label', '每頁顯示條數');
-        PAGE_SIZE_OPTIONS.forEach(size => {
-            const option = document.createElement('option');
-            option.value = String(size);
-            option.textContent = `${size}條`;
-            option.selected = size === pageSize;
-            select.appendChild(option);
-        });
-        select.addEventListener('change', () => changePageSize(select.value));
-        sizeLabel.appendChild(select);
-        controls.appendChild(sizeLabel);
-
-        const sortLabel = document.createElement('label');
-        sortLabel.className = 'sort-select';
-        sortLabel.textContent = '排序';
-        const sortSelect = document.createElement('select');
-        sortSelect.setAttribute('aria-label', '結果排序方式');
-        SORT_OPTIONS.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            option.selected = opt.value === currentSort;
-            sortSelect.appendChild(option);
-        });
-        sortSelect.addEventListener('change', () => changeSort(sortSelect.value));
-        sortLabel.appendChild(sortSelect);
-        controls.appendChild(sortLabel);
+        controls.appendChild(createSelectControl(
+            'pagination-size', '每頁', '每頁顯示條數',
+            PAGE_SIZE_OPTIONS.map(size => ({ value: size, label: `${size}條` })),
+            pageSize, changePageSize
+        ));
+        controls.appendChild(createSelectControl(
+            'sort-select', '排序', '結果排序方式',
+            SORT_OPTIONS, currentSort, changeSort
+        ));
     }
 
     if (totalPages > 1) {
@@ -984,7 +808,7 @@ function renderResultCard(item, idx) {
     const card = document.createElement('div');
     card.className = 'result-card';
     card.lang = document.documentElement.lang;
-    card.style.animationDelay = (Math.min(idx, 10) * 0.06) + 's';
+    card.style.animationDelay = `${Math.min(idx, 10) * 0.06}s`;
     card.dataset.char = item.z || '';
     card.dataset.phonetic = item.y || '';
     const safeZ = escapeHtml(item.z) || '？';
@@ -993,11 +817,12 @@ function renderResultCard(item, idx) {
     const safeP = escapeHtml(item.p) || '—';
     const safeM = escapeHtml(item.m);
     const ziUrl = item.z ? encodeURIComponent(item.z) : '';
+    const rhymeBase = `https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}`;
 
     let tags = '';
     if (item.a) tags += `<button class="tag xiesheng-tag" type="button" data-exact-search="${safeA}" title="點擊查找同諧聲域字" aria-label="諧聲域 ${safeA}，點擊查詢同域字">諧聲域: ${safeA}</button>`;
-    if (item.s === 1) tags += `<a class="tag rhyme-tag" href="https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱詩經韻">見詩經韻</a>`;
-    if (item.q === 1) tags += `<a class="tag rhyme-tag" href="https://suzukish.sakura.ne.jp/search/xianqin/index.php?yunzi=${ziUrl}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱戰國韻">見戰國韻</a>`;
+    if (item.s === 1) tags += `<a class="tag rhyme-tag" href="${rhymeBase}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱詩經韻">見詩經韻</a>`;
+    if (item.q === 1) tags += `<a class="tag rhyme-tag" href="${rhymeBase}" target="_blank" rel="noopener noreferrer" title="在先秦兩漢韻部資料庫查閱戰國韻">見戰國韻</a>`;
 
     let meaningsHtml = '<p class="empty-meaning">暫無釋義</p>';
     let meaningNote = '';
@@ -1049,19 +874,18 @@ function renderResultCard(item, idx) {
                 <div class="section-header">
                     <span class="section-label">注釋</span>
                 </div>
-                <div class="text-block annotation">${annotationHtml}</div>
+                <div class="text-block">${annotationHtml}</div>
             </div>` : ''}
         </div>`;
     return card;
 }
 
 function renderPaginatedResults(updateUrl = true, shouldScroll = false) {
-    const resultsDiv = document.getElementById('results');
+    const resultsDiv = $('results');
     resultsDiv.replaceChildren();
-
     if (!currentQuery) return;
 
-    if (currentResults.length === 0) {
+    if (!currentResults.length) {
         resultsDiv.setAttribute('aria-label', '查詢結果：無結果');
         resultsDiv.innerHTML = `<div class="no-result" role="status">未找到「${escapeHtml(currentQuery)}」的相關條目<br><span>可嘗試輸入單個漢字、拼音、諧聲域或使用正則</span></div>`;
         if (updateUrl) updateSearchUrl();
@@ -1101,15 +925,22 @@ function goToPage(page) {
 
 function changePageSize(value) {
     pageSize = normalizePageSize(value);
-    persistPageSize(pageSize);
+    writeStorage(PAGE_SIZE_STORAGE_KEY, String(pageSize));
     currentPage = 1;
     renderPaginatedResults(true, true);
 }
 
+function changeSort(value) {
+    if (currentSort === value) return;
+    currentSort = value;
+    currentPage = 1;
+    renderPaginatedResults(true, false);
+}
+
 function searchDict(updateUrl = true) {
-    const query = document.getElementById('searchInput').value.trim();
-    const resultsDiv = document.getElementById('results');
-    const regexErrorDiv = document.getElementById('regexError');
+    const query = $('searchInput').value.trim();
+    const resultsDiv = $('results');
+    const regexErrorDiv = $('regexError');
     const mode = document.querySelector('input[name="searchMode"]:checked').value;
 
     currentQuery = query;
@@ -1127,8 +958,7 @@ function searchDict(updateUrl = true) {
         return;
     }
 
-    // Hide search history when showing results
-    document.getElementById('searchHistory')?.replaceChildren();
+    $('searchHistory')?.replaceChildren();
 
     // Batch mode
     if (mode === 'batch') {
@@ -1137,153 +967,95 @@ function searchDict(updateUrl = true) {
         return;
     }
 
-    let isRegexMode = mode === 'regex' || (query.startsWith('/') && query.endsWith('/') && query.length > 2);
-    let isExactMode = mode === 'exact' || (query.startsWith('"') && query.endsWith('"') && query.length > 2);
-    let regex = null;
-    let exactStr = "";
-
-    if (isRegexMode) {
-        let regexStr = query;
-        let flags = "";
-        const match = query.match(/^\/(.+)\/([gimsuy]*)$/);
-        if (match) {
-            regexStr = match[1];
-            flags = match[2];
-        }
-        const result = safeRegex(regexStr, flags);
-        if (!result.ok) {
-            regexErrorDiv.textContent = result.msg;
-            regexErrorDiv.style.display = 'block';
-            return;
-        }
-        regex = result.regex;
-    }
-
-    if (isExactMode) {
-        exactStr = (query.startsWith('"') && query.endsWith('"')) ? query.slice(1, -1) : query;
-    }
-
-    let results;
-
-    if (mode === 'default' && !isRegexMode && !isExactMode) {
-        let tokens = [];
-        const parts = query.split(/\s+/);
-        for (let p of parts) {
-            if (!p) continue;
-            const matches = p.match(CJK_TOKEN_RE);
-            if (matches) {
-                matches.forEach(match => {
-                    if (CJK_RE.test(match)) {
-                        tokens.push(...Array.from(match));
-                    } else {
-                        tokens.push(match);
-                    }
-                });
-            }
-        }
-        if (tokens.length === 0) tokens = [query];
-        const parsedTokens = tokens.map(t => ({ val: t, isUpper: /^[A-Z0-9]+$/.test(t), isHan: CJK_RE.test(t) }));
-
-        results = [];
-        const seen = new Set();
-
-        parsedTokens.forEach(token => {
-            appendUnique(results, seen, zIndex.get(token.val));
-            appendUnique(results, seen, pinyinIndex.get(token.val));
-            appendUnique(results, seen, phoneticIndex.get(token.val));
-            appendUnique(results, seen, domainExactIndex.get(token.val));
-
-            if (token.isUpper) {
-                for (const [domain, items] of domainExactIndex) {
-                    if (domain.includes(token.val)) appendUnique(results, seen, items);
-                }
-            }
-
-            if (!token.isHan) {
-                dictData.forEach(item => {
-                    if (!seen.has(item) && ((item.y && item.y.includes(token.val)) || (item.p && item.p.includes(token.val)))) {
-                        seen.add(item);
-                        results.push(item);
-                    }
-                });
-            }
-        });
-    } else if (mode === 'meaning') {
-        // Read a full code point, matching the for...of iteration in buildIndexes.
+    let results = [];
+    if (mode === 'meaning') {
         const [firstChar] = query;
-        if (meaningIndex.has(firstChar)) {
-            const candidateIndices = Array.from(meaningIndex.get(firstChar));
-            results = candidateIndices.map(i => dictData[i]).filter(item => {
-                const inMeaning = item.d?.[1]?.some(m => m.includes(query));
-                const inEtym    = item.e?.includes(query);
-                const inNote    = item.n?.includes(query);
-                return inMeaning || inEtym || inNote;
-            });
-        } else {
-            results = [];
-        }
+        results = Array.from(meaningIndex.get(firstChar) || [], i => dictData[i])
+            .filter(item => item.d?.[1]?.some(m => m.includes(query)) || item.n?.includes(query));
     } else {
-        if (isRegexMode && regex) {
-            results = dictData.filter(item => regexMatches(regex, item.z, item.y, item.p, item.a));
+        const isRegexMode = mode === 'regex' || (query.startsWith('/') && query.endsWith('/') && query.length > 2);
+        const isExactMode = mode === 'exact' || (query.startsWith('"') && query.endsWith('"') && query.length > 2);
+
+        if (isRegexMode) {
+            const match = query.match(/^\/(.+)\/([gimsuy]*)$/);
+            const result = safeRegex(match ? match[1] : query, match ? match[2] : '');
+            if (!result.ok) {
+                regexErrorDiv.textContent = result.msg;
+                regexErrorDiv.style.display = 'block';
+                return;
+            }
+            results = dictData.filter(item => regexMatches(result.regex, item.z, item.y, item.p, item.a));
         } else if (isExactMode) {
+            const exactStr = (query.startsWith('"') && query.endsWith('"')) ? query.slice(1, -1) : query;
             const seen = new Set();
-            results = [];
-            appendUnique(results, seen, zIndex.get(exactStr));
-            appendUnique(results, seen, pinyinIndex.get(exactStr));
-            appendUnique(results, seen, phoneticIndex.get(exactStr));
-            appendUnique(results, seen, domainExactIndex.get(exactStr));
-            appendUnique(results, seen, initialExactIndex.get(exactStr));
+            ALL_INDEX_KEYS.forEach(k => appendUnique(results, seen, exactIndexes[k].get(exactStr)));
         } else {
-            results = [];
+            const tokens = query.split(/\s+/).flatMap(p =>
+                (p.match(CJK_TOKEN_RE) || []).flatMap(m => CJK_RE.test(m) ? Array.from(m) : [m])
+            );
+            if (!tokens.length) tokens.push(query);
+
+            const seen = new Set();
+            tokens.forEach(val => {
+                const isUpper = /^[A-Z0-9]+$/.test(val);
+                const isHan = CJK_RE.test(val);
+                BASE_INDEX_KEYS.forEach(k => appendUnique(results, seen, exactIndexes[k].get(val)));
+
+                if (isUpper) {
+                    for (const [domain, items] of exactIndexes.a) {
+                        if (domain.includes(val)) appendUnique(results, seen, items);
+                    }
+                }
+                if (!isHan) {
+                    dictData.forEach(item => {
+                        if (!seen.has(item) && (item.y?.includes(val) || item.p?.includes(val))) {
+                            seen.add(item);
+                            results.push(item);
+                        }
+                    });
+                }
+            });
         }
     }
 
     currentResults = results;
-    if (results.length > 0) addSearchHistory(query, mode);
+    if (results.length) {
+        updateSearchHistory(history => [
+            { query, mode },
+            ...history.filter(h => !(h.query === query && h.mode === mode)),
+        ].slice(0, HISTORY_MAX));
+    }
     renderPaginatedResults(updateUrl);
 }
 
 function renderBatchResults(text) {
-    const resultsDiv = document.getElementById('results');
-    const chars = [];
-    const inputChars = Array.from(text).slice(0, BATCH_MAX_LENGTH);
-    for (const ch of inputChars) {
-        if (CJK_RE.test(ch)) chars.push(ch);
-    }
+    const resultsDiv = $('results');
+    const allChars = Array.from(text);
+    const chars = allChars.slice(0, BATCH_MAX_LENGTH).filter(ch => CJK_RE.test(ch));
     if (!chars.length) {
-        resultsDiv.innerHTML = `<div class="no-result" role="status">未找到可標音的漢字<br><span>請輸入包含漢字的文本</span></div>`;
+        resultsDiv.innerHTML = '<div class="no-result" role="status">未找到可標音的漢字<br><span>請輸入包含漢字的文本</span></div>';
         return;
     }
 
-    // Build per-character results (preserving input order, allowing duplicates)
-    const rows = chars.map(ch => {
-        const items = zIndex.get(ch) || [];
-        return { char: ch, items };
-    });
+    const rows = chars.map(char => ({ char, items: exactIndexes.z.get(char) || [] }));
     _batchRows = rows;
 
     const totalChars = rows.length;
     const foundChars = rows.filter(r => r.items.length > 0).length;
     const totalRows = rows.reduce((sum, r) => sum + Math.max(1, r.items.length), 0);
 
-    // Build table HTML
     let tableRows = '';
     let idx = 0;
     rows.forEach(row => {
-        if (row.items.length === 0) {
+        if (!row.items.length) {
             idx++;
-            tableRows += `<tr><td>${idx}</td><td class="batch-char">${escapeHtml(row.char)}</td>
-                <td class="batch-not-found" colspan="3">未收錄</td></tr>`;
+            tableRows += `<tr><td>${idx}</td><td class="batch-char">${escapeHtml(row.char)}</td><td class="batch-not-found" colspan="3">未收錄</td></tr>`;
         } else {
+            const span = row.items.length > 1 ? ` rowspan="${row.items.length}"` : '';
             row.items.forEach((item, i) => {
                 idx++;
-                const charCell = i === 0
-                    ? `<td class="batch-char"${row.items.length > 1 ? ` rowspan="${row.items.length}"` : ''}>${escapeHtml(row.char)}</td>`
-                    : '';
-                const numCell = i === 0
-                    ? `<td${row.items.length > 1 ? ` rowspan="${row.items.length}"` : ''}>${idx - i}</td>`
-                    : '';
-                tableRows += `<tr>${numCell}${charCell}
+                const lead = i === 0 ? `<td${span}>${idx}</td><td class="batch-char"${span}>${escapeHtml(row.char)}</td>` : '';
+                tableRows += `<tr>${lead}
                     <td class="batch-pinyin">${escapeHtml(item.p || '—')}</td>
                     <td class="batch-phonetic">${escapeHtml(item.y || '—')}</td>
                     <td class="batch-domain">${escapeHtml(item.a || '—')}</td></tr>`;
@@ -1291,9 +1063,7 @@ function renderBatchResults(text) {
         }
     });
 
-    const truncationNote = Array.from(text).length > BATCH_MAX_LENGTH
-        ? `，已截取前${BATCH_MAX_LENGTH}字`
-        : '';
+    const truncationNote = allChars.length > BATCH_MAX_LENGTH ? `，已截取前${BATCH_MAX_LENGTH}字` : '';
     resultsDiv.innerHTML = `
         <div class="batch-container">
             <div class="batch-actions">
@@ -1310,41 +1080,97 @@ function renderBatchResults(text) {
         </div>`;
 }
 
-// ── Floating Back-to-Top Button ─────────────────────────────────
-{
-    const backToTop = document.getElementById('backToTop');
+function setupEventListeners() {
+    // 全域快捷鍵：按下 / 快速 focus 搜尋框
+    document.addEventListener('keydown', e => {
+        const t = e.target;
+        const isTyping = t instanceof HTMLElement &&
+            (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+        if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping) {
+            e.preventDefault();
+            $('searchInput')?.focus();
+        }
+    });
+
+    $('searchInput')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.isComposing) searchDict();
+    });
+    $('searchBtn')?.addEventListener('click', e => {
+        if (e.currentTarget.dataset.action === 'retry') initDictionary();
+        else searchDict();
+    });
+    document.querySelectorAll('input[name="searchMode"]').forEach(input => {
+        input.addEventListener('change', () => {
+            syncSearchModeUI();
+            searchDict();
+        });
+    });
+    syncSearchModeUI();
+
+    $('reloadBtn')?.addEventListener('click', () => location.reload());
+    $('dismissUpdateBtn')?.addEventListener('click', () => {
+        const bar = $('updateBar');
+        if (bar) bar.style.display = 'none';
+    });
+    $('results')?.addEventListener('click', handleResultsClick);
+
+    const historyEl = $('searchHistory');
+    historyEl?.addEventListener('click', e => {
+        if (!(e.target instanceof Element)) return;
+        if (e.target.closest('.history-clear-btn')) {
+            updateSearchHistory(() => [], true);
+            return;
+        }
+        const item = e.target.closest('.history-item');
+        if (!item) return;
+        if (e.target.closest('.history-item-delete')) {
+            updateSearchHistory(h => h.filter(x => !(x.query === item.dataset.query && x.mode === item.dataset.mode)), true);
+        } else {
+            applySearch(item.dataset.query, item.dataset.mode);
+        }
+    });
+    historyEl?.addEventListener('keydown', e => {
+        if ((e.key !== 'Enter' && e.key !== ' ') || !(e.target instanceof Element)) return;
+        const item = e.target.closest('.history-item');
+        if (!item || e.target.closest('button')) return;
+        e.preventDefault();
+        applySearch(item.dataset.query, item.dataset.mode);
+    });
+
+    const backToTop = $('backToTop');
     const searchContainer = document.querySelector('.search-container');
     if (backToTop && searchContainer) {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                backToTop.classList.toggle('visible', !entry.isIntersecting);
-            },
+        new IntersectionObserver(
+            ([entry]) => backToTop.classList.toggle('visible', !entry.isIntersecting),
             { threshold: 0, rootMargin: '0px' }
-        );
-        observer.observe(searchContainer);
+        ).observe(searchContainer);
 
         backToTop.addEventListener('click', () => {
             searchContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            document.getElementById('searchInput')?.focus({ preventScroll: true });
+            $('searchInput')?.focus({ preventScroll: true });
         });
     }
+
+    window.addEventListener('popstate', loadFromUrl);
 }
 
-const isLocalDevelopment = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+setupEventListeners();
+renderWelcomePage();
+initDictionary();
 
 if ('serviceWorker' in navigator) {
-  if (isLocalDevelopment) {
-    navigator.serviceWorker.getRegistrations()
-      .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
-      .catch(() => {});
-  } else {
-    window.addEventListener('load', () => {
-      let hadController = !!navigator.serviceWorker.controller;
-      navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (hadController) showUpdateNotification();
-        hadController = true;
-      });
-    });
-  }
+    if (['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) {
+        navigator.serviceWorker.getRegistrations()
+            .then(regs => Promise.all(regs.map(r => r.unregister())))
+            .catch(() => {});
+    } else {
+        window.addEventListener('load', () => {
+            let hadController = !!navigator.serviceWorker.controller;
+            navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (hadController) showUpdateNotification();
+                hadController = true;
+            });
+        });
+    }
 }
