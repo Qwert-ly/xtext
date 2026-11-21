@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'pboc';
-const SHELL_CACHE = `${CACHE_PREFIX}-shell-v3`;
-const STATIC_CACHE = `${CACHE_PREFIX}-static-v9`;
+const SHELL_CACHE = `${CACHE_PREFIX}-shell-v4`;
+const STATIC_CACHE = `${CACHE_PREFIX}-static-v10`;
 const DICT_CACHE_PREFIX = `${CACHE_PREFIX}-dict`;
 
 const scopeUrl = new URL(self.registration.scope);

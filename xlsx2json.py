@@ -99,7 +99,7 @@ for _, row in df_x.iterrows():
 df_d['小韻表注釋'] = df_d.apply(get_note, axis=1)
 df_d['釋義'] = df_d['釋義'].apply(parse_def)
 
-for col in ['先秦字頻（歸一化）', '西周字頻（歸一化）', '小韻表注釋']:
+for col in ['先秦字頻（歸一化）', '西周字頻（歸一化）', '小韻表注釋', '推導音韻地位', '推導中古音']:
     if col in df_d.columns:
         df_d = df_d.drop(columns=[col])
 
@@ -121,7 +121,7 @@ with open('上古汉语音节表.json', 'w', encoding='utf-8') as f:
     json.dump(cleaned_records, f, ensure_ascii=False, separators=(',', ':'))
 
 key_map = {
-    "字": "z", "音": "y", "拼音": "p", "諧聲域": "a", "見詩經韻": "s", "見戰國韻": "q", "推導音韻地位": "c", "聲首": "m", "釋義": "d", "注釋": "n"
+    "字": "z", "音": "y", "拼音": "p", "諧聲域": "a", "見詩經韻": "s", "見戰國韻": "q", "聲首": "m", "釋義": "d", "注釋": "n"
 }
 
 base_records = []

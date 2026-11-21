@@ -983,6 +983,7 @@ function createPaginationBar(total, position = 'top', includeOptions = position 
 function renderResultCard(item, idx) {
     const card = document.createElement('div');
     card.className = 'result-card';
+    card.lang = document.documentElement.lang;
     card.style.animationDelay = (Math.min(idx, 10) * 0.06) + 's';
     card.dataset.char = item.z || '';
     card.dataset.phonetic = item.y || '';
@@ -990,7 +991,6 @@ function renderResultCard(item, idx) {
     const safeA = escapeHtml(item.a);
     const safeY = escapeHtml(item.y) || '—';
     const safeP = escapeHtml(item.p) || '—';
-    const safeC = escapeHtml(item.c);
     const safeM = escapeHtml(item.m);
     const ziUrl = item.z ? encodeURIComponent(item.z) : '';
 
@@ -1004,7 +1004,7 @@ function renderResultCard(item, idx) {
     if (item.d?.[1]?.length > 0) {
         meaningNote = item.d[0] ? `<span class="section-note">（${escapeHtml(item.d[0])}）</span>` : '';
         meaningsHtml = `<ol class="meanings-list">${item.d[1].map((m, i) =>
-            `<li><span class="sense-num">${i + 1}</span><span>${parseLinks(m, highlightMeaningSearchTerm)}</span></li>`
+            `<li><span class="sense-num">${i + 1}</span><span class="meaning-text">${parseLinks(m, highlightMeaningSearchTerm)}</span></li>`
         ).join('')}</ol>`;
     }
 
@@ -1027,19 +1027,10 @@ function renderResultCard(item, idx) {
                     <span class="pinyin-value">${safeP}</span>
                     ${item.p ? `<button class="copy-btn" type="button" data-copy-text="${safeP}" title="複製拼音" aria-label="複製拼音">📋</button>` : ''}
                 </div>
-                ${item.c || item.m ? `
-                <div class="derived-phonology" aria-label="推導中古音韻">
-                    <span class="derived-heading">推導中古</span>
-                    ${item.c ? `
-                    <span class="derived-item">
-                        <span class="derived-label">音韻地位</span>
-                        <span class="derived-value">${safeC}</span>
-                    </span>` : ''}
-                    ${item.m ? `
-                    <span class="derived-item">
-                        <span class="derived-label">聲首</span>
-                        <button class="derived-value initial-search" type="button" data-exact-search="${safeM}" title="點擊查找同聲首字" aria-label="聲首 ${safeM}，點擊查詢同聲首字">${safeM}</button>
-                    </span>` : ''}
+                ${item.m ? `
+                <div class="phonetic-row">
+                    <span class="phonetic-label">聲首</span>
+                    <button class="initial-value initial-search" type="button" data-exact-search="${safeM}" title="點擊查找同聲首字" aria-label="聲首 ${safeM}，點擊查詢同聲首字">${safeM}</button>
                 </div>` : ''}
                 ${tags ? `<div class="char-tags">${tags}</div>` : ''}
             </div>
